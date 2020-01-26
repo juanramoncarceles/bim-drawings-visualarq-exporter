@@ -29,7 +29,28 @@ public class SVGWriter
 
         this.CalculateViewBox(rhobjsBBox);
 
-        return this.WriteSVG(rhobjs);
+        // Classify objects by its source object.
+        // All objects from the same source object are placed under the same list.
+        IDictionary<Guid, List<Rhino.DocObjects.RhinoObject>> rhobjsGroups = new Dictionary<Guid, List<Rhino.DocObjects.RhinoObject>>();
+        foreach (Rhino.DocObjects.RhinoObject rhobj in rhobjs)
+        {
+            Guid myTestGuid = Guid.NewGuid(); // Guid sourceGuid = VisualARQ.Script.vaGetSourceObjectId(rhobj.Id);
+            // TODO for now repeat the same guid for all the items
+
+            if (rhobjsGroups.ContainsKey(myTestGuid))
+            {
+                rhobjsGroups[myTestGuid].Add(rhobj);
+            }
+            else
+            {
+                List<Rhino.DocObjects.RhinoObject> rhobjsGroup = new List<Rhino.DocObjects.RhinoObject> { rhobj };
+                rhobjsGroups.Add(myTestGuid, rhobjsGroup);
+            }
+        }
+
+        // TODO for each key value pair join the sectioned curves.
+
+        return this.WriteSVG(rhobjsGroups);
     }
 
     public BoundingBox GetBoundingBox(Rhino.DocObjects.RhinoObject[] rhobjs)
@@ -74,7 +95,7 @@ public class SVGWriter
         this.svgOrigin = new Point2d(Math.Min(pt_min.X, pt_max.X), Math.Max(pt_min.Y, pt_max.Y));
     }
 
-    public System.Drawing.PointF rhinoToSvgPt(Rhino.Geometry.Point3d rhinoPt)
+    public System.Drawing.PointF RhinoToSvgPt(Point3d rhinoPt)
     {
         double x, y;
         x = Math.Round(rhinoPt.X - this.svgOrigin.X, this.Digits);
@@ -101,8 +122,7 @@ public class SVGWriter
                 {
                     if (Vector3d.Multiply(circle.Normal, DirectionOfProjection) < 0.9999)
                     {
-                        // return WriteSVGBezier(xmlDoc, curve, rhobj);
-                        return null; // Temporary
+                        return this.WriteSVGBezier(xmlDoc, curve, rhobj);
                     }
                     else
                     {
@@ -111,8 +131,7 @@ public class SVGWriter
                 }
                 else
                 {
-                    // return WriteSVGBezier(xmlDoc, curve, rhobj);
-                    return null; // Temporary
+                    return this.WriteSVGBezier(xmlDoc, curve, rhobj);
                 }
             }
         }
@@ -123,7 +142,7 @@ public class SVGWriter
     {
         XmlNode userNode = xmlDoc.CreateElement("line");
 
-        System.Drawing.PointF startPt = this.rhinoToSvgPt(curve.PointAtStart);
+        System.Drawing.PointF startPt = this.RhinoToSvgPt(curve.PointAtStart);
 
         XmlAttribute attribute = xmlDoc.CreateAttribute("x1");
         attribute.Value = startPt.X.ToString();
@@ -133,7 +152,7 @@ public class SVGWriter
         attribute.Value = startPt.Y.ToString();
         userNode.Attributes.Append(attribute);
 
-        System.Drawing.PointF endPt = this.rhinoToSvgPt(curve.PointAtEnd);
+        System.Drawing.PointF endPt = this.RhinoToSvgPt(curve.PointAtEnd);
 
         attribute = xmlDoc.CreateAttribute("x2");
         attribute.Value = endPt.X.ToString();
@@ -157,10 +176,15 @@ public class SVGWriter
         // TODO: logic here...
 
         XmlNode userNode = xmlDoc.CreateElement("path");
+
         XmlAttribute attribute = xmlDoc.CreateAttribute("d");
         attribute.Value = "M0,0 L10,10";
         userNode.Attributes.Append(attribute);
-        // this.CreateStyleAttribute(rhobj, curve.IsClosed);
+
+        // attribute = xmlDoc.CreateAttribute("style");
+        // attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed); // polyline open but polygon closed
+        // userNode.Attributes.Append(attribute);
+
         return userNode;
     }
 
@@ -169,7 +193,7 @@ public class SVGWriter
     {
         XmlNode userNode = xmlDoc.CreateElement("circle");
 
-        System.Drawing.PointF center = this.rhinoToSvgPt(circle.Center);
+        System.Drawing.PointF center = this.RhinoToSvgPt(circle.Center);
 
         XmlAttribute attribute = xmlDoc.CreateAttribute("cx");
         attribute.Value = center.X.ToString();
@@ -191,7 +215,34 @@ public class SVGWriter
     }
 
     // ******************** BEZIER CURVE **************************
-    // TODO...
+    public XmlNode WriteSVGBezier(XmlDocument xmlDoc, Curve curve, Rhino.DocObjects.RhinoObject rhobj)
+    {
+        BezierCurve[] beziers = BezierCurve.CreateCubicBeziers(curve, this.doc.ModelAbsoluteTolerance, this.doc.ModelAbsoluteTolerance);
+        System.Drawing.PointF controlVertex = this.RhinoToSvgPt(beziers[0].GetControlVertex3d(0));
+        String poly = String.Format("M{0},{1} ", controlVertex.X, controlVertex.Y);
+        for (int i = 0; i < beziers.Length; i++)
+        {
+            System.Drawing.PointF controlVertex1 = this.RhinoToSvgPt(beziers[i].GetControlVertex3d(1));
+            poly += String.Format("C{0},{1} ", controlVertex1.X, controlVertex1.Y);
+            System.Drawing.PointF controlVertex2 = this.RhinoToSvgPt(beziers[i].GetControlVertex3d(2));
+            poly += String.Format("{0},{1} ", controlVertex2.X, controlVertex2.Y);
+            System.Drawing.PointF controlVertex3 = this.RhinoToSvgPt(beziers[i].GetControlVertex3d(3));
+            poly += String.Format("{0},{1} ", controlVertex3.X, controlVertex3.Y);
+        }
+        if (curve.IsClosed) poly += "z";
+
+        XmlNode userNode = xmlDoc.CreateElement("path");
+
+        XmlAttribute attribute = xmlDoc.CreateAttribute("d");
+        attribute.Value = poly;
+        userNode.Attributes.Append(attribute);
+        
+        attribute = xmlDoc.CreateAttribute("style");
+        attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed);
+        userNode.Attributes.Append(attribute);
+
+        return userNode;
+    }
 
     // ******************** HATCH **************************
     // TODO...
@@ -234,7 +285,7 @@ public class SVGWriter
     }
 
     // ******************** WRITE SVG **************************
-    public XmlDocument WriteSVG(Rhino.DocObjects.RhinoObject[] rhobjs)
+    public XmlDocument WriteSVG(IDictionary<Guid, List<Rhino.DocObjects.RhinoObject>> rhobjsGroups)
     {
         xmlDoc = null;
         xmlDoc = new XmlDocument();
@@ -270,52 +321,52 @@ public class SVGWriter
         title = xmlDoc.CreateComment("Export Rhino to SVG, version 0.1, Ramon Carceles email:juanramoncarceles[at]gmail.com");
         rootNode.AppendChild(title);
 
-        // List used to store nodes
-        // List<XmlNode> listOfNodes = new List<XmlNode>();
+        // List used to store the xml nodes corresponding to each group. All will be appended to rootNode.
+        // List<XmlNode> listOfXmlNodes = new List<XmlNode>();
 
-        // The first node is the SVG node
-        // listOfNodes.Add(rootNode);
-
-        XmlNode node = xmlDoc.CreateElement("g");
-        // TODO: For now only one group, but there will be one for each entity
-        // listOfNodes.Add(node);
-        // Custom attribute to allow selection of the element in the app.
-        attribute = xmlDoc.CreateAttribute("selectable");
-        attribute.Value = "";
-        node.Attributes.Append(attribute);
-        // The id of the element.
-        attribute = xmlDoc.CreateAttribute("data-id");
-        attribute.Value = "the-id-of-the-object";
-        node.Attributes.Append(attribute);
-        // The category of the element.
-        attribute = xmlDoc.CreateAttribute("data-category");
-        attribute.Value = "the-category-of-the-object";
-        node.Attributes.Append(attribute);
-
-        rootNode.AppendChild(node);
-
-        XmlNode nodeTest = null;
-
-        if (rhobjs != null && rhobjs.Length > 0)
+        foreach(KeyValuePair<Guid, List<Rhino.DocObjects.RhinoObject>> rhobjsGroup in rhobjsGroups)
         {
-            foreach (Rhino.DocObjects.RhinoObject rhobj in rhobjs)
+            if (rhobjsGroup.Value != null && rhobjsGroup.Value.Count > 0)
             {
-                switch ((int)rhobj.Geometry.ObjectType)
+                XmlNode node = xmlDoc.CreateElement("g");
+        
+                // listOfXmlNodes.Add(node);
+                // Custom attribute to allow selection of the element in the app.
+                attribute = xmlDoc.CreateAttribute("selectable");
+                attribute.Value = "";
+                node.Attributes.Append(attribute);
+                // The id of the element.
+                attribute = xmlDoc.CreateAttribute("data-id");
+                attribute.Value = rhobjsGroup.Key.ToString();
+                node.Attributes.Append(attribute);
+                // The category of the element.
+                attribute = xmlDoc.CreateAttribute("data-category");
+                attribute.Value = "the-category-of-the-object";
+                node.Attributes.Append(attribute);
+
+                rootNode.AppendChild(node);
+
+                XmlNode nodeTest = null;
+
+                foreach (Rhino.DocObjects.RhinoObject rhobj in rhobjsGroup.Value)
                 {
-                    // ********** CURVE **********
-                    case (int)Rhino.DocObjects.ObjectType.Curve:
-                        Curve curve = ((Curve)(rhobj.Geometry));
-                        nodeTest = this.WriteSVGCurve(this.xmlDoc, curve, rhobj);
-                        if (nodeTest != null) node.AppendChild(nodeTest);
-                        break;
-                    // ********** HATCH ***********
-                    case (int)Rhino.DocObjects.ObjectType.Hatch:
-                        Rhino.Geometry.Hatch hatch = rhobj.Geometry as Rhino.Geometry.Hatch;
-                        Rhino.Geometry.GeometryBase[] hatches = hatch.Explode();
-                        // nodeTest = this.WriteSVGHatch(xmlDoc, hatches, rhobj, layerId);
-                        // if (nodeTest != null) node.AppendChild(nodeTest);
-                        break;
-                        // TODO: Other types like text?
+                    switch ((int)rhobj.Geometry.ObjectType)
+                    {
+                        // ********** CURVE **********
+                        case (int)Rhino.DocObjects.ObjectType.Curve:
+                            Curve curve = ((Curve)(rhobj.Geometry));
+                            nodeTest = this.WriteSVGCurve(this.xmlDoc, curve, rhobj);
+                            if (nodeTest != null) node.AppendChild(nodeTest);
+                            break;
+                        // ********** HATCH ***********
+                        case (int)Rhino.DocObjects.ObjectType.Hatch:
+                            Hatch hatch = rhobj.Geometry as Hatch;
+                            GeometryBase[] hatches = hatch.Explode();
+                            // nodeTest = this.WriteSVGHatch(xmlDoc, hatches, rhobj, layerId);
+                            // if (nodeTest != null) node.AppendChild(nodeTest);
+                            break;
+                            // TODO: Other types like text?
+                    }
                 }
             }
         }
