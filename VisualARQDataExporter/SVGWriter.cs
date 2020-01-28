@@ -48,7 +48,7 @@ public class SVGWriter
             }
         }
 
-        // TODO for each key value pair join the sectioned curves.
+        // TODO: if a sectioned component doesnt have a solid hatch then join the sectioned curves to create path with fill
 
         return this.WriteSVG(rhobjsGroups);
     }
@@ -172,18 +172,33 @@ public class SVGWriter
     // ******************** POLYLINE **************************
     public XmlNode WriteSVGPolyline(XmlDocument xmlDoc, Polyline curve, Rhino.DocObjects.RhinoObject rhobj)
     {
-        // TODO: This should be if polyline is closed use polygon element otherwise polyline element?
-        // TODO: logic here...
+        XmlNode userNode;
 
-        XmlNode userNode = xmlDoc.CreateElement("path");
+        if (curve.IsClosed)
+        {
+            userNode = xmlDoc.CreateElement("polygon");
+        }
+        else
+        {
+            userNode = xmlDoc.CreateElement("polyline");
+        }
 
-        XmlAttribute attribute = xmlDoc.CreateAttribute("d");
-        attribute.Value = "M0,0 L10,10";
+        XmlAttribute attribute = xmlDoc.CreateAttribute("points");
+
+        String points = "";
+
+        for (int i = 0; i < curve.Count; i++)
+        {
+            System.Drawing.PointF pt = this.RhinoToSvgPt(curve[i]);
+            points += pt.X + " " + pt.Y + " ";
+        }
+        
+        attribute.Value = points;
         userNode.Attributes.Append(attribute);
 
-        // attribute = xmlDoc.CreateAttribute("style");
-        // attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed); // polyline open but polygon closed
-        // userNode.Attributes.Append(attribute);
+        attribute = xmlDoc.CreateAttribute("style");
+        attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed); // polyline open but polygon closed
+        userNode.Attributes.Append(attribute);
 
         return userNode;
     }
@@ -245,7 +260,72 @@ public class SVGWriter
     }
 
     // ******************** HATCH **************************
-    // TODO...
+    public XmlNode WriteSVGHatch(XmlDocument xmlDoc, Hatch hatch, Rhino.DocObjects.RhinoObject rhobj)
+    {
+        if (this.doc.HatchPatterns[hatch.PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid)
+        {
+            // Rhino Hatch can only be continuous and have one outer curve and one or more inner curves.
+
+            Curve[] outerBoundary = hatch.Get3dCurves(true);
+            Curve[] innerBoundary = hatch.Get3dCurves(false);
+
+            if (innerBoundary.Length > 0)
+            {
+                XmlNode userNode = xmlDoc.CreateElement("path");
+
+                // TODO: if there are inner curves then it should be path / bezier
+                // Go straight to a special bezier WriteComposedPath(xmlDoc, list, rhobj)
+                // list would be the first the outer boundary and the rest inner
+                CurveOrientation outOrient = outerBoundary[0].ClosedCurveOrientation();
+                foreach(Curve c in innerBoundary)
+                {
+                    if (c.ClosedCurveOrientation() == outOrient)
+                    {
+                        c.Reverse();
+                    }
+                }
+
+                return userNode;
+            }
+            else
+            {
+                // TODO Is handled if it is a polyline with curved segments?
+                return WriteSVGCurve(xmlDoc, outerBoundary[0], rhobj);
+            }
+        }
+        else
+        {
+            GeometryBase[] hatches = hatch.Explode();
+
+            XmlNode userNode = xmlDoc.CreateElement("g");
+
+            // TODO maybe its wrong to pass as rhobj the hatch, instead pass one of the parts of the exploded hatch
+            XmlAttribute attribute = xmlDoc.CreateAttribute("style");
+            // attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed); // If it is Curve then hatches[0].IsClosed but if it is Point then false or nothing
+            userNode.Attributes.Append(attribute);
+
+            for (int i = 0; i < hatches.Length; i++)
+            {
+                GeometryBase geom = hatches[i];
+                if (null != geom)
+                {
+                    switch (geom.ObjectType)
+                    {
+                        case Rhino.DocObjects.ObjectType.Curve:
+                            Curve curve = geom as Curve;
+                                userNode.AppendChild(WriteSVGCurve(xmlDoc, curve, rhobj));
+                            break;
+                        case Rhino.DocObjects.ObjectType.Point:
+                            Point point = geom as Point;
+                            // userNode.AppendChild(WriteSVGPoint(xmlDoc, point.Location, rhobj));
+                            break;
+                    }
+                }
+            }
+
+            return userNode;
+        }
+    }
 
     // ******************** TEXT **************************
     // TODO...
@@ -255,30 +335,39 @@ public class SVGWriter
     {
         List<string> styleAttributes = new List<string>();
 
-        // Stroke color
-        styleAttributes.Add("stroke:");
-        styleAttributes.Add(String.Format("rgb({0},{1},{2})", new object[] { rhobj.Attributes.ObjectColor.R, rhobj.Attributes.ObjectColor.G, rhobj.Attributes.ObjectColor.B }));
+        // Only objects that are not Hatch can have stroke.
+        if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch)
+        {
+            // Stroke color
+            styleAttributes.Add("stroke:");
+            styleAttributes.Add(String.Format("rgb({0},{1},{2});", new object[] { rhobj.Attributes.ObjectColor.R, rhobj.Attributes.ObjectColor.G, rhobj.Attributes.ObjectColor.B }));
 
-        // Stroke width
-        styleAttributes.Add(";stroke-width:");
-        if (rhobj.Attributes.PlotWeight == 0) // Is the "Default" value.
-            styleAttributes.Add("1");
-        else if (rhobj.Attributes.PlotWeight == -1) // Is the "No print" value.
-            styleAttributes.Add("1");
-        else
-            styleAttributes.Add(Math.Round(rhobj.Attributes.PlotWeight, this.Digits).ToString());
+            // Stroke width
+            styleAttributes.Add("stroke-width:");
+            if (rhobj.Attributes.PlotWeight == 0) // Is the "Default" value.
+                styleAttributes.Add("1;");
+            else if (rhobj.Attributes.PlotWeight == -1) // Is the "No print" value.
+                styleAttributes.Add("1;");
+            else
+                styleAttributes.Add(Math.Round(rhobj.Attributes.PlotWeight, this.Digits).ToString() + ";");
+        }
 
         // Fill color
-        styleAttributes.Add(";fill:");
+        styleAttributes.Add("fill:");
         if (!is_closed)
         {
-            styleAttributes.Add("none");
+            styleAttributes.Add("none;");
         }
         else
         {
-            // TODO: since there are only curves and hatch maybe is for hatch ?
-            // For now always none...
-            styleAttributes.Add("none");
+            if (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch)
+            {
+                styleAttributes.Add(String.Format("rgb({0},{1},{2});", new object[] { rhobj.Attributes.ObjectColor.R, rhobj.Attributes.ObjectColor.G, rhobj.Attributes.ObjectColor.B }));
+            }
+            else // If it is a closed curve.
+            {
+                styleAttributes.Add("rgb(255,255,255);fill-opacity:0;");
+            }
         }
 
         return String.Join("", styleAttributes);
@@ -354,18 +443,17 @@ public class SVGWriter
                     {
                         // ********** CURVE **********
                         case (int)Rhino.DocObjects.ObjectType.Curve:
-                            Curve curve = ((Curve)(rhobj.Geometry));
+                            Curve curve = (Curve)rhobj.Geometry;
                             nodeTest = this.WriteSVGCurve(this.xmlDoc, curve, rhobj);
                             if (nodeTest != null) node.AppendChild(nodeTest);
                             break;
                         // ********** HATCH ***********
                         case (int)Rhino.DocObjects.ObjectType.Hatch:
-                            Hatch hatch = rhobj.Geometry as Hatch;
-                            GeometryBase[] hatches = hatch.Explode();
-                            // nodeTest = this.WriteSVGHatch(xmlDoc, hatches, rhobj, layerId);
-                            // if (nodeTest != null) node.AppendChild(nodeTest);
+                            Hatch hatch = (Hatch)rhobj.Geometry;
+                            nodeTest = this.WriteSVGHatch(this.xmlDoc, hatch, rhobj);
+                            if (nodeTest != null) node.AppendChild(nodeTest);
                             break;
-                            // TODO: Other types like text?
+                        // **** TODO: Other types? ****
                     }
                 }
             }
