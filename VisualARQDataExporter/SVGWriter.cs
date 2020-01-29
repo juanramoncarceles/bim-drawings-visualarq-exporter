@@ -174,23 +174,29 @@ public class SVGWriter
     {
         XmlNode userNode;
 
-        if (curve.IsClosed)
-        {
-            userNode = xmlDoc.CreateElement("polygon");
-        }
-        else
-        {
-            userNode = xmlDoc.CreateElement("polyline");
-        }
-
         XmlAttribute attribute = xmlDoc.CreateAttribute("points");
 
         String points = "";
 
-        for (int i = 0; i < curve.Count; i++)
+        if (curve.IsClosed)
         {
-            System.Drawing.PointF pt = this.RhinoToSvgPt(curve[i]);
-            points += pt.X + " " + pt.Y + " ";
+            userNode = xmlDoc.CreateElement("polygon");
+
+            for (int i = 0; i < curve.Count - 1; i++)
+            {
+                System.Drawing.PointF pt = this.RhinoToSvgPt(curve[i]);
+                points += pt.X + " " + pt.Y + " ";
+            }
+        }
+        else
+        {
+            userNode = xmlDoc.CreateElement("polyline");
+
+            for (int i = 0; i < curve.Count; i++)
+            {
+                System.Drawing.PointF pt = this.RhinoToSvgPt(curve[i]);
+                points += pt.X + " " + pt.Y + " ";
+            }
         }
         
         attribute.Value = points;
@@ -262,7 +268,7 @@ public class SVGWriter
     // ******************** HATCH **************************
     public XmlNode WriteSVGHatch(XmlDocument xmlDoc, Hatch hatch, Rhino.DocObjects.RhinoObject rhobj)
     {
-        if (this.doc.HatchPatterns[hatch.PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid)
+        if (doc.HatchPatterns[hatch.PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid)
         {
             // Rhino Hatch can only be continuous and have one outer curve and one or more inner curves.
 
@@ -272,10 +278,7 @@ public class SVGWriter
             if (innerBoundary.Length > 0)
             {
                 XmlNode userNode = xmlDoc.CreateElement("path");
-
-                // TODO: if there are inner curves then it should be path / bezier
-                // Go straight to a special bezier WriteComposedPath(xmlDoc, list, rhobj)
-                // list would be the first the outer boundary and the rest inner
+                
                 CurveOrientation outOrient = outerBoundary[0].ClosedCurveOrientation();
                 foreach(Curve c in innerBoundary)
                 {
@@ -284,6 +287,9 @@ public class SVGWriter
                         c.Reverse();
                     }
                 }
+
+                // add curves to a list where the first would be the outer boundary and the rest inners
+                // then pass to a special method WriteComposedPath(xmlDoc, list, rhobj)
 
                 return userNode;
             }
@@ -299,15 +305,17 @@ public class SVGWriter
 
             XmlNode userNode = xmlDoc.CreateElement("g");
 
-            // TODO maybe its wrong to pass as rhobj the hatch, instead pass one of the parts of the exploded hatch
             XmlAttribute attribute = xmlDoc.CreateAttribute("style");
-            // attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed); // If it is Curve then hatches[0].IsClosed but if it is Point then false or nothing
+            attribute.Value = this.CreateStyleAttribute(rhobj, ((Curve)hatches[0]).IsClosed); // TODO: It could be a point? then what?
             userNode.Attributes.Append(attribute);
+            
+            // TODO: problem since a style attribute is created for each subelement too.
+            // Put inside each curve function an if rhobj is hatch not solid skip the create style?
 
             for (int i = 0; i < hatches.Length; i++)
             {
                 GeometryBase geom = hatches[i];
-                if (null != geom)
+                if (geom != null)
                 {
                     switch (geom.ObjectType)
                     {
@@ -335,8 +343,8 @@ public class SVGWriter
     {
         List<string> styleAttributes = new List<string>();
 
-        // Only objects that are not Hatch can have stroke.
-        if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch)
+        // Only objects that are not Hatch or that are Hatch with a pattern different than solid can have stroke.
+        if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch || (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch && doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType != Rhino.DocObjects.HatchPatternFillType.Solid))
         {
             // Stroke color
             styleAttributes.Add("stroke:");
@@ -364,7 +372,7 @@ public class SVGWriter
             {
                 styleAttributes.Add(String.Format("rgb({0},{1},{2});", new object[] { rhobj.Attributes.ObjectColor.R, rhobj.Attributes.ObjectColor.G, rhobj.Attributes.ObjectColor.B }));
             }
-            else // If it is a closed curve.
+            else // If it is a closed curve like a hatch pattern of circles.
             {
                 styleAttributes.Add("rgb(255,255,255);fill-opacity:0;");
             }
