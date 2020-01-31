@@ -20,14 +20,14 @@ public class SVGWriter
 
     public XmlDocument CreateSVG(RhinoDoc _doc, Rhino.DocObjects.RhinoObject[] rhobjs)
     {
-        this.doc = _doc;
-        this.DirectionOfProjection = new Vector3d(0, 0, 1.0);
-        this.Digits = 2;
-        this.AlsoHidden = false;
+        doc = _doc;
+        DirectionOfProjection = new Vector3d(0, 0, 1.0);
+        Digits = 2;
+        AlsoHidden = false;
 
-        BoundingBox rhobjsBBox = this.GetBoundingBox(rhobjs);
+        BoundingBox rhobjsBBox = GetBoundingBox(rhobjs);
 
-        this.CalculateViewBox(rhobjsBBox);
+        CalculateViewBox(rhobjsBBox);
 
         // Classify objects by its source object.
         // All objects from the same source object are placed under the same list.
@@ -50,7 +50,7 @@ public class SVGWriter
 
         // TODO: if a sectioned component doesnt have a solid hatch then join the sectioned curves to create path with fill
 
-        return this.WriteSVG(rhobjsGroups);
+        return WriteSVG(rhobjsGroups);
     }
 
     public BoundingBox GetBoundingBox(Rhino.DocObjects.RhinoObject[] rhobjs)
@@ -60,7 +60,7 @@ public class SVGWriter
         {
             foreach (Rhino.DocObjects.RhinoObject rhobj in rhobjs)
             {
-                if (this.AlsoHidden || (!rhobj.IsHidden)) // this.AlsoHidden || (!rhobj.IsHidden && this.doc.Layers[rhobj.Attributes.LayerIndex].IsVisible)
+                if (AlsoHidden || (!rhobj.IsHidden)) // this.AlsoHidden || (!rhobj.IsHidden && this.doc.Layers[rhobj.Attributes.LayerIndex].IsVisible)
                 {
                     Rhino.DocObjects.ObjectType type = rhobj.Geometry.ObjectType;
                     if (type == Rhino.DocObjects.ObjectType.Curve || type == Rhino.DocObjects.ObjectType.Hatch) // || type == ObjectType.Point || type == ObjectType.Annotation
@@ -82,39 +82,41 @@ public class SVGWriter
         {
             pt_min = new Point3d(bb.Min);
             pt_max = new Point3d(bb.Max);
-            this.width = Math.Abs(pt_max.X - pt_min.X);
-            this.height = Math.Abs(pt_max.Y - pt_min.Y);
-            if (this.width == 0.0) this.width = 10.0;
-            if (this.height == 0.0) this.height = 10.0;
+            width = Math.Abs(pt_max.X - pt_min.X);
+            height = Math.Abs(pt_max.Y - pt_min.Y);
+            if (width == 0.0) width = 10.0;
+            if (height == 0.0) height = 10.0;
         }
         else
         {
-            this.width = 10.0;
-            this.height = 10.0;
+            width = 10.0;
+            height = 10.0;
         }
-        this.svgOrigin = new Point2d(Math.Min(pt_min.X, pt_max.X), Math.Max(pt_min.Y, pt_max.Y));
+        svgOrigin = new Point2d(Math.Min(pt_min.X, pt_max.X), Math.Max(pt_min.Y, pt_max.Y));
     }
 
     public System.Drawing.PointF RhinoToSvgPt(Point3d rhinoPt)
     {
         double x, y;
-        x = Math.Round(rhinoPt.X - this.svgOrigin.X, this.Digits);
-        y = Math.Round(this.svgOrigin.Y - rhinoPt.Y, this.Digits);
+        x = Math.Round(rhinoPt.X - svgOrigin.X, Digits);
+        y = Math.Round(svgOrigin.Y - rhinoPt.Y, Digits);
         return new System.Drawing.PointF((float)x, (float)y);
     }
 
     // ******************** CURVE **************************
     public XmlNode WriteSVGCurve(XmlDocument xmlDoc, Curve curve, Rhino.DocObjects.RhinoObject rhobj)
     {
+        XmlNode userNode;
+
         if (curve.IsLinear())
         {
-            return this.WriteSVGLine(xmlDoc, curve, rhobj);
+            userNode = WriteSVGLine(xmlDoc, curve, rhobj);
         }
         else
         {
             if (curve.TryGetPolyline(out Polyline polyline))
             {
-                return this.WriteSVGPolyline(xmlDoc, polyline, rhobj);
+                userNode = WriteSVGPolyline(xmlDoc, polyline, rhobj);
             }
             else
             {
@@ -122,19 +124,29 @@ public class SVGWriter
                 {
                     if (Vector3d.Multiply(circle.Normal, DirectionOfProjection) < 0.9999)
                     {
-                        return this.WriteSVGBezier(xmlDoc, curve, rhobj);
+                        userNode = WriteSVGBezier(xmlDoc, curve, rhobj);
                     }
                     else
                     {
-                        return WriteSVGCircle(xmlDoc, circle, rhobj);
+                        userNode = WriteSVGCircle(xmlDoc, circle, rhobj);
                     }
                 }
                 else
                 {
-                    return this.WriteSVGBezier(xmlDoc, curve, rhobj);
+                    userNode = WriteSVGBezier(xmlDoc, curve, rhobj);
                 }
             }
         }
+
+        // Only objects that are not Hatch or that are Hatch with a solid pattern can have the style attribute.
+        if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch || (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch && doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid))
+        {
+            XmlAttribute attribute = xmlDoc.CreateAttribute("style");
+            attribute.Value = CreateStyleAttribute(rhobj, curve.IsClosed);
+            userNode.Attributes.Append(attribute);
+        }
+
+        return userNode;
     }
 
     // ******************** LINE **************************
@@ -142,7 +154,7 @@ public class SVGWriter
     {
         XmlNode userNode = xmlDoc.CreateElement("line");
 
-        System.Drawing.PointF startPt = this.RhinoToSvgPt(curve.PointAtStart);
+        System.Drawing.PointF startPt = RhinoToSvgPt(curve.PointAtStart);
 
         XmlAttribute attribute = xmlDoc.CreateAttribute("x1");
         attribute.Value = startPt.X.ToString();
@@ -152,7 +164,7 @@ public class SVGWriter
         attribute.Value = startPt.Y.ToString();
         userNode.Attributes.Append(attribute);
 
-        System.Drawing.PointF endPt = this.RhinoToSvgPt(curve.PointAtEnd);
+        System.Drawing.PointF endPt = RhinoToSvgPt(curve.PointAtEnd);
 
         attribute = xmlDoc.CreateAttribute("x2");
         attribute.Value = endPt.X.ToString();
@@ -160,10 +172,6 @@ public class SVGWriter
 
         attribute = xmlDoc.CreateAttribute("y2");
         attribute.Value = endPt.Y.ToString();
-        userNode.Attributes.Append(attribute);
-
-        attribute = xmlDoc.CreateAttribute("style");
-        attribute.Value = this.CreateStyleAttribute(rhobj, false);
         userNode.Attributes.Append(attribute);
 
         return userNode;
@@ -184,7 +192,7 @@ public class SVGWriter
 
             for (int i = 0; i < curve.Count - 1; i++)
             {
-                System.Drawing.PointF pt = this.RhinoToSvgPt(curve[i]);
+                System.Drawing.PointF pt = RhinoToSvgPt(curve[i]);
                 points += pt.X + " " + pt.Y + " ";
             }
         }
@@ -194,16 +202,12 @@ public class SVGWriter
 
             for (int i = 0; i < curve.Count; i++)
             {
-                System.Drawing.PointF pt = this.RhinoToSvgPt(curve[i]);
+                System.Drawing.PointF pt = RhinoToSvgPt(curve[i]);
                 points += pt.X + " " + pt.Y + " ";
             }
         }
         
         attribute.Value = points;
-        userNode.Attributes.Append(attribute);
-
-        attribute = xmlDoc.CreateAttribute("style");
-        attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed); // polyline open but polygon closed
         userNode.Attributes.Append(attribute);
 
         return userNode;
@@ -214,7 +218,7 @@ public class SVGWriter
     {
         XmlNode userNode = xmlDoc.CreateElement("circle");
 
-        System.Drawing.PointF center = this.RhinoToSvgPt(circle.Center);
+        System.Drawing.PointF center = RhinoToSvgPt(circle.Center);
 
         XmlAttribute attribute = xmlDoc.CreateAttribute("cx");
         attribute.Value = center.X.ToString();
@@ -225,11 +229,7 @@ public class SVGWriter
         userNode.Attributes.Append(attribute);
 
         attribute = xmlDoc.CreateAttribute("r");
-        attribute.Value = Math.Round(circle.Radius, this.Digits).ToString();
-        userNode.Attributes.Append(attribute);
-
-        attribute = xmlDoc.CreateAttribute("style");
-        attribute.Value = this.CreateStyleAttribute(rhobj, true);
+        attribute.Value = Math.Round(circle.Radius, Digits).ToString();
         userNode.Attributes.Append(attribute);
 
         return userNode;
@@ -238,16 +238,19 @@ public class SVGWriter
     // ******************** BEZIER CURVE **************************
     public XmlNode WriteSVGBezier(XmlDocument xmlDoc, Curve curve, Rhino.DocObjects.RhinoObject rhobj)
     {
-        BezierCurve[] beziers = BezierCurve.CreateCubicBeziers(curve, this.doc.ModelAbsoluteTolerance, this.doc.ModelAbsoluteTolerance);
-        System.Drawing.PointF controlVertex = this.RhinoToSvgPt(beziers[0].GetControlVertex3d(0));
+        // TODO: Maybe it could be optimized in case of a polycurve and check each
+        // span of the polycurve if it is straight to use L instead of always C.
+
+        BezierCurve[] beziers = BezierCurve.CreateCubicBeziers(curve, doc.ModelAbsoluteTolerance, doc.ModelAbsoluteTolerance);
+        System.Drawing.PointF controlVertex = RhinoToSvgPt(beziers[0].GetControlVertex3d(0));
         String poly = String.Format("M{0},{1} ", controlVertex.X, controlVertex.Y);
         for (int i = 0; i < beziers.Length; i++)
         {
-            System.Drawing.PointF controlVertex1 = this.RhinoToSvgPt(beziers[i].GetControlVertex3d(1));
+            System.Drawing.PointF controlVertex1 = RhinoToSvgPt(beziers[i].GetControlVertex3d(1));
             poly += String.Format("C{0},{1} ", controlVertex1.X, controlVertex1.Y);
-            System.Drawing.PointF controlVertex2 = this.RhinoToSvgPt(beziers[i].GetControlVertex3d(2));
+            System.Drawing.PointF controlVertex2 = RhinoToSvgPt(beziers[i].GetControlVertex3d(2));
             poly += String.Format("{0},{1} ", controlVertex2.X, controlVertex2.Y);
-            System.Drawing.PointF controlVertex3 = this.RhinoToSvgPt(beziers[i].GetControlVertex3d(3));
+            System.Drawing.PointF controlVertex3 = RhinoToSvgPt(beziers[i].GetControlVertex3d(3));
             poly += String.Format("{0},{1} ", controlVertex3.X, controlVertex3.Y);
         }
         if (curve.IsClosed) poly += "z";
@@ -256,10 +259,6 @@ public class SVGWriter
 
         XmlAttribute attribute = xmlDoc.CreateAttribute("d");
         attribute.Value = poly;
-        userNode.Attributes.Append(attribute);
-        
-        attribute = xmlDoc.CreateAttribute("style");
-        attribute.Value = this.CreateStyleAttribute(rhobj, curve.IsClosed);
         userNode.Attributes.Append(attribute);
 
         return userNode;
@@ -306,7 +305,7 @@ public class SVGWriter
             XmlNode userNode = xmlDoc.CreateElement("g");
 
             XmlAttribute attribute = xmlDoc.CreateAttribute("style");
-            attribute.Value = this.CreateStyleAttribute(rhobj, ((Curve)hatches[0]).IsClosed); // TODO: It could be a point? then what?
+            attribute.Value = CreateStyleAttribute(rhobj, ((Curve)hatches[0]).IsClosed); // TODO: It could be a point? then what?
             userNode.Attributes.Append(attribute);
             
             // TODO: problem since a style attribute is created for each subelement too.
@@ -357,7 +356,7 @@ public class SVGWriter
             else if (rhobj.Attributes.PlotWeight == -1) // Is the "No print" value.
                 styleAttributes.Add("1;");
             else
-                styleAttributes.Add(Math.Round(rhobj.Attributes.PlotWeight, this.Digits).ToString() + ";");
+                styleAttributes.Add(Math.Round(rhobj.Attributes.PlotWeight, Digits).ToString() + ";");
         }
 
         // Fill color
@@ -404,14 +403,14 @@ public class SVGWriter
 
         attribute = xmlDoc.CreateAttribute("viewBox");
 
-        attribute.Value = "0 0 " + Math.Round(this.width, this.Digits) + " " + Math.Round(this.height, this.Digits);
+        attribute.Value = "0 0 " + Math.Round(width, Digits) + " " + Math.Round(height, Digits);
         rootNode.Attributes.Append(attribute);
 
         String name;
-        if (this.doc.Name == null)
+        if (doc.Name == null)
             name = "SVG of Rhinoceros 6 file untitled.3dm";
         else
-            name = String.Format("SVG of Rhinoceros 6 file _{0}_", this.doc.Name);
+            name = String.Format("SVG of Rhinoceros 6 file _{0}_", doc.Name);
         XmlNode title = xmlDoc.CreateComment(name);
         rootNode.AppendChild(title);
 
@@ -452,13 +451,13 @@ public class SVGWriter
                         // ********** CURVE **********
                         case (int)Rhino.DocObjects.ObjectType.Curve:
                             Curve curve = (Curve)rhobj.Geometry;
-                            nodeTest = this.WriteSVGCurve(this.xmlDoc, curve, rhobj);
+                            nodeTest = WriteSVGCurve(xmlDoc, curve, rhobj);
                             if (nodeTest != null) node.AppendChild(nodeTest);
                             break;
                         // ********** HATCH ***********
                         case (int)Rhino.DocObjects.ObjectType.Hatch:
                             Hatch hatch = (Hatch)rhobj.Geometry;
-                            nodeTest = this.WriteSVGHatch(this.xmlDoc, hatch, rhobj);
+                            nodeTest = WriteSVGHatch(xmlDoc, hatch, rhobj);
                             if (nodeTest != null) node.AppendChild(nodeTest);
                             break;
                         // **** TODO: Other types? ****
