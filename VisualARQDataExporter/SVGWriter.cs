@@ -264,6 +264,51 @@ public class SVGWriter
         return userNode;
     }
 
+    // ******************** COMPOSED PATH **************************
+    public XmlNode WriteSVGComposedPath(XmlDocument xmlDoc, Curve[] curves, Rhino.DocObjects.RhinoObject rhobj)
+    {
+        // TODO: Maybe it could be optimized in case of a polycurve and check each
+        // span of the polycurve if it is straight to use L instead of always C.
+
+        string poly = "";
+
+        foreach (Curve curve in curves)
+        {
+            BezierCurve[] beziers = BezierCurve.CreateCubicBeziers(curve, doc.ModelAbsoluteTolerance, doc.ModelAbsoluteTolerance);
+            System.Drawing.PointF controlVertex = RhinoToSvgPt(beziers[0].GetControlVertex3d(0));
+            poly += String.Format("M{0},{1} ", controlVertex.X, controlVertex.Y);
+            for (int i = 0; i < beziers.Length; i++)
+            {
+                System.Drawing.PointF controlVertex1 = RhinoToSvgPt(beziers[i].GetControlVertex3d(1));
+                poly += String.Format("C{0},{1} ", controlVertex1.X, controlVertex1.Y);
+                System.Drawing.PointF controlVertex2 = RhinoToSvgPt(beziers[i].GetControlVertex3d(2));
+                poly += String.Format("{0},{1} ", controlVertex2.X, controlVertex2.Y);
+                System.Drawing.PointF controlVertex3 = RhinoToSvgPt(beziers[i].GetControlVertex3d(3));
+                poly += String.Format("{0},{1} ", controlVertex3.X, controlVertex3.Y);
+            }
+            if (curve.IsClosed) poly += "z";
+        }
+
+        XmlNode userNode = xmlDoc.CreateElement("path");
+
+        XmlAttribute attribute = xmlDoc.CreateAttribute("d");
+        attribute.Value = poly;
+        userNode.Attributes.Append(attribute);
+
+        // TODO: This is for a solid hatch or a set of related closed curves, if it is the last it works? 
+        // For now it is only used to create a fill with holes from a hatch with holes.
+        // Only objects that are not Hatch? or that are Hatch with a solid pattern can have the style attribute.
+        // TODO: How to handle a set of joined curves? What will be the rhobj? It should have 255,255,255 and fill opacity 0.
+        if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch || (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch && doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid))
+        {
+            attribute = xmlDoc.CreateAttribute("style");
+            attribute.Value = CreateStyleAttribute(rhobj, true);
+            userNode.Attributes.Append(attribute);
+        }
+
+        return userNode;
+    }
+
     // ******************** HATCH **************************
     public XmlNode WriteSVGHatch(XmlDocument xmlDoc, Hatch hatch, Rhino.DocObjects.RhinoObject rhobj)
     {
@@ -276,25 +321,21 @@ public class SVGWriter
 
             if (innerBoundary.Length > 0)
             {
-                XmlNode userNode = xmlDoc.CreateElement("path");
-                
+                // Array where the first would be the outer curve and the rest inners.
+                Curve[] curves = new Curve[1 + innerBoundary.Length];
+                curves[0] = outerBoundary[0];
+                innerBoundary.CopyTo(curves, 1);
+
                 CurveOrientation outOrient = outerBoundary[0].ClosedCurveOrientation();
-                foreach(Curve c in innerBoundary)
+                for (int i = 1; i < curves.Length; i++)
                 {
-                    if (c.ClosedCurveOrientation() == outOrient)
-                    {
-                        c.Reverse();
-                    }
+                    if (curves[i].ClosedCurveOrientation() == outOrient) curves[i].Reverse();
                 }
 
-                // add curves to a list where the first would be the outer boundary and the rest inners
-                // then pass to a special method WriteComposedPath(xmlDoc, list, rhobj)
-
-                return userNode;
+                return WriteSVGComposedPath(xmlDoc, curves, rhobj);
             }
             else
             {
-                // TODO Is handled if it is a polyline with curved segments?
                 return WriteSVGCurve(xmlDoc, outerBoundary[0], rhobj);
             }
         }
