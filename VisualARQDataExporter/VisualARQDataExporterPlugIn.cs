@@ -53,12 +53,8 @@ namespace VisualARQDataExporter
         protected override Rhino.PlugIns.WriteFileResult WriteFile(string filename, int index, RhinoDoc doc, Rhino.FileIO.FileWriteOptions options)
         {
 
-            
-
-            Rhino.RhinoApp.WriteLine("Hello");
 
             List<InstanceDefinitionGeometry> planViewsDefs = new List<InstanceDefinitionGeometry>();
-
 
 
             // All SVG docs will be stored here.
@@ -73,18 +69,13 @@ namespace VisualARQDataExporter
                 // TODO: Remove the border and the label of the plan view.
 
                 // Create the svg with this objects and add it to the list of SVG docs.
-                svgDocs.Add(svg.CreateSVG(Rhino.RhinoDoc.ActiveDoc, rhobjs)); // TODO: should return an XmlDocument
+                // svgDocs.Add(svg.CreateSVG(Rhino.RhinoDoc.ActiveDoc, rhobjs)); // TODO: should return an XmlDocument
             }
 
             foreach (XmlDocument svgDoc in svgDocs)
             {
                 // svgDoc.Save("Test.svg"); // set the path
             }
-
-
-
-
-
 
 
             /*

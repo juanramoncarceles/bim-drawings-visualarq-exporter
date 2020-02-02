@@ -102,17 +102,29 @@ namespace VisualARQDataExporter
 
                 foreach (Rhino.DocObjects.InstanceDefinition pv in planViewsDefs)
                 {
-                    // RhinoApp.WriteLine(pv.Id.ToString());
-
                     SVGWriter svg = new SVGWriter();
+
+                    List<Guid> objectsGuids;
 
                     // Get all the objects in the Plan View.
                     Rhino.DocObjects.RhinoObject[] rhobjs = pv.GetObjects();
                     // TODO: Remove the border and the label of the plan view.
 
+
                     // Create the SVG with this objects and add it to the list of SVG docs.
-                    svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs));
+                    // TODO: Maybe using this out system the Guid could be added only if not exists.
+                    svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs, out objectsGuids));
+
+                    // Temporary
+                    foreach (var id in objectsGuids)
+                    {
+                        RhinoApp.WriteLine(id.ToString());
+                    }
                 }
+
+                // TODO: Obtain a list with all the different Guids for all the docs.
+                // Here loop the list to obtain the data for each object and create the json files.
+
 
                 foreach (XmlDocument svgDoc in svgDocs)
                 {
