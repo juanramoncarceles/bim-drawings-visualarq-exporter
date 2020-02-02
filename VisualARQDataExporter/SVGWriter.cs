@@ -17,7 +17,7 @@ namespace VisualARQDataExporter
         double width;
         public XmlDocument xmlDoc;
 
-        public XmlDocument CreateSVG(RhinoDoc _doc, Rhino.DocObjects.RhinoObject[] rhobjs, out List<Guid> objIds)
+        public XmlDocument CreateSVG(RhinoDoc _doc, Rhino.DocObjects.RhinoObject[] rhobjs)
         {
             doc = _doc;
             DirectionOfProjection = new Vector3d(0, 0, 1.0);
@@ -27,9 +27,6 @@ namespace VisualARQDataExporter
             BoundingBox rhobjsBBox = GetBoundingBox(rhobjs);
 
             CalculateViewBox(rhobjsBBox);
-
-            // All the different Guid of the source objects will be stored here.
-            objIds = new List<Guid>();
 
             // Classify objects by its source object.
             // All objects from the same source object are placed under the same list.
@@ -52,10 +49,10 @@ namespace VisualARQDataExporter
                         rhobjsGroups.Add(sourceId, rhobjsGroup);
                     }
 
-                    // Global list with the unique Ids.
-                    if (!objIds.Contains(sourceId))
+                    // Global list with the unique rhino object ids.
+                    if (!VisualARQDataExporterCommand.objectsGuids.Contains(sourceId))
                     {
-                        objIds.Add(sourceId);
+                        VisualARQDataExporterCommand.objectsGuids.Add(sourceId);
                     }
                 }
             }

@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Geometry;
-using Rhino.Input;
 using Rhino.Input.Custom;
-using VisualARQ;
+using static VisualARQ.Script;
 using System.Xml;
 using System.Windows.Forms;
 using System.IO;
+using System.Dynamic;
+using Newtonsoft.Json;
 
 namespace VisualARQDataExporter
 {
@@ -34,7 +35,15 @@ namespace VisualARQDataExporter
             get { return "VisualARQDataExporterCommand"; }
         }
 
+        public static List<Guid> objectsGuids = new List<Guid>();
 
+        /// <summary>
+        /// Determines if the passed Rhino object is a plan view or a section view or not.
+        /// </summary>
+        /// <param name="rhObject"></param>
+        /// <param name="geometry"></param>
+        /// <param name="componentIndex"></param>
+        /// <returns></returns>
         private bool PlanAndSectionViews(Rhino.DocObjects.RhinoObject rhObject, GeometryBase geometry, ComponentIndex componentIndex)
         {
             //if (VisualARQ.Script.IsPlanView(rhObject.Id) || VisualARQ.Script.IsSectionView(rhObject.Id))
@@ -87,6 +96,42 @@ namespace VisualARQDataExporter
                 }
             }
 
+            // Export options.
+            GetOption gopt = new GetOption();
+            gopt.SetCommandPrompt("Output mode");
+            List<int> opt_list = new List<int>();
+
+            int opt_index = gopt.AddOption("SingleFile");
+            opt_list.Add(opt_index);
+            opt_index = gopt.AddOption("FolderStructure");
+            opt_list.Add(opt_index);
+
+            // Get the command option.
+            gopt.Get();
+            if (gopt.CommandResult() != Result.Success)
+                return gopt.CommandResult();
+
+            int selected_index = gopt.Option().Index;
+
+            RhinoApp.WriteLine(selected_index.ToString());
+
+            if (selected_index == 2)
+            {
+                // Browse for a folder.
+                FolderBrowserDialog fbd = new FolderBrowserDialog();
+
+                string folderName;
+
+                // Show the FolderBrowserDialog.
+                DialogResult result = fbd.ShowDialog();
+                if (result == DialogResult.OK)
+                {
+                    folderName = fbd.SelectedPath;
+                    RhinoApp.WriteLine(folderName);
+                }
+            }
+
+            // Save single file dialog.
             SaveFileDialog sfd = new SaveFileDialog();
 
             // sfd.Filter = "svg files (*.svg)|*.svg|All files (*.*)|*.*";
@@ -104,31 +149,53 @@ namespace VisualARQDataExporter
                 {
                     SVGWriter svg = new SVGWriter();
 
-                    List<Guid> objectsGuids;
-
                     // Get all the objects in the Plan View.
                     Rhino.DocObjects.RhinoObject[] rhobjs = pv.GetObjects();
                     // TODO: Remove the border and the label of the plan view.
 
-
                     // Create the SVG with this objects and add it to the list of SVG docs.
-                    // TODO: Maybe using this out system the Guid could be added only if not exists.
-                    svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs, out objectsGuids));
-
-                    // Temporary
-                    foreach (var id in objectsGuids)
-                    {
-                        RhinoApp.WriteLine(id.ToString());
-                    }
+                    svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs));
                 }
 
-                // TODO: Obtain a list with all the different Guids for all the docs.
-                // Here loop the list to obtain the data for each object and create the json files.
+                // Store all the unique id of the styles used.
+                List<Guid> styleGuids = new List<Guid>();
 
+                // Store all the data for each object.
+                Dictionary<Guid, ExpandoObject> instancesData = new Dictionary<Guid, ExpandoObject>();
 
-                foreach (XmlDocument svgDoc in svgDocs)
+                foreach (Guid id in objectsGuids)
                 {
-                    svgDoc.Save(Path.GetFullPath(sfd.FileName));
+                    Guid styleId = GetProductStyle(id);
+
+                    // Add the styleId.
+                    if (styleGuids.Contains(styleId))
+                    {
+                        styleGuids.Add(styleId);
+                    }
+
+                    instancesData.Add(id, Utilities.GetObjectData(id));
+                }
+
+                // TODO: also get the data for each style used. Maybe store also in a Dictionary<Guid, ExpandoObject>
+                foreach (Guid id in styleGuids)
+                {
+                    //... get styles data.
+                }
+
+                string json = JsonConvert.SerializeObject(instancesData, Newtonsoft.Json.Formatting.None);
+
+                RhinoApp.WriteLine(json);
+
+                // TEMP
+                string directory = Path.GetDirectoryName(sfd.FileName);
+                
+                //foreach (XmlDocument svgDoc in svgDocs)
+                //{
+                //    svgDoc.Save(Path.GetFullPath(sfd.FileName));
+                //}
+                for (int i = 0; i < svgDocs.Count; i++)
+                {
+                    svgDocs[i].Save(Path.Combine(directory, i + "drawing.svg"));
                 }
 
                 return Result.Success;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Dynamic;
 using static VisualARQ.Script;
 
 namespace VisualARQDataExporter
@@ -11,6 +12,7 @@ namespace VisualARQDataExporter
 
             if (sourceObj.ObjectType == Rhino.DocObjects.ObjectType.InstanceReference)
             {
+                // TODO use this... VisualARQ.Script.IsProduct()
                 if (IsWall(id))
                 {
                     return "wall";
@@ -56,6 +58,29 @@ namespace VisualARQDataExporter
             {
                 return "rhinoobj";
             }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static ExpandoObject GetObjectData(Guid id)
+        {
+            Rhino.DocObjects.RhinoObject rhobj = Rhino.RhinoDoc.ActiveDoc.Objects.FindId(id);
+
+            dynamic objData = new ExpandoObject();
+
+            objData.Type = GetCustomType(id);
+
+            objData.Name = rhobj.Name;
+
+            objData.Style = GetProductStyle(id);
+
+
+            //GetAllObjectParameterIds(id, false);
+
+            return objData;
         }
     }
 }
