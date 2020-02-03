@@ -144,7 +144,9 @@ namespace VisualARQDataExporter
             {
                 // All SVG docs will be stored here.
                 List<XmlDocument> svgDocs = new List<XmlDocument>();
+                Dictionary<string, string> svgDrawings = new Dictionary<string, string>();
 
+                int tempCount = 0;
                 foreach (Rhino.DocObjects.InstanceDefinition pv in planViewsDefs)
                 {
                     SVGWriter svg = new SVGWriter();
@@ -154,7 +156,9 @@ namespace VisualARQDataExporter
                     // TODO: Remove the border and the label of the plan view.
 
                     // Create the SVG with this objects and add it to the list of SVG docs.
-                    svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs));
+                    svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs)); // TODO return also the drawing name? for example a KeyValuePair string xmldoc
+                    svgDrawings.Add("abc" + tempCount, svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs).OuterXml);
+                    tempCount++;
                 }
 
                 // Store all the unique id of the styles used.
@@ -168,7 +172,7 @@ namespace VisualARQDataExporter
                     Guid styleId = GetProductStyle(id);
 
                     // Add the styleId.
-                    if (styleGuids.Contains(styleId))
+                    if (!styleGuids.Contains(styleId))
                     {
                         styleGuids.Add(styleId);
                     }
@@ -181,7 +185,6 @@ namespace VisualARQDataExporter
 
                 foreach (Guid id in styleGuids)
                 {
-                    RhinoApp.WriteLine("a style");
                     stylesData.Add(id, Utilities.GetStyleData(id));
                 }
 
@@ -189,25 +192,28 @@ namespace VisualARQDataExporter
                 string instancesJsonData = JsonConvert.SerializeObject(instancesData, Newtonsoft.Json.Formatting.Indented); // Newtonsoft.Json.Formatting.None
                 string stylesJsonData = JsonConvert.SerializeObject(stylesData, Newtonsoft.Json.Formatting.Indented);
 
-                //RhinoApp.WriteLine(json);
-
                 // TEMP
                 string directory = Path.GetDirectoryName(sfd.FileName);
 
-                RhinoApp.WriteLine(directory);
-                
                 // Create the JSON file.
-                File.WriteAllText(Path.Combine(directory + "\\instancesData.json"), instancesJsonData);
-                File.WriteAllText(Path.Combine(directory + "\\stylesData.json"), stylesJsonData);
+                //File.WriteAllText(Path.Combine(directory + "\\instancesData.json"), instancesJsonData);
+                //File.WriteAllText(Path.Combine(directory + "\\stylesData.json"), stylesJsonData);
 
+                // A single JSON file.
+                FileTemplate reviewFile = new FileTemplate(svgDrawings, instancesData);
+                File.WriteAllText(Path.Combine(directory + "\\archive.json"), JsonConvert.SerializeObject(reviewFile, Newtonsoft.Json.Formatting.Indented));
+
+                // Old option
                 //foreach (XmlDocument svgDoc in svgDocs)
                 //{
                 //    svgDoc.Save(Path.GetFullPath(sfd.FileName));
                 //}
-                for (int i = 0; i < svgDocs.Count; i++)
-                {
-                    svgDocs[i].Save(Path.Combine(directory, i + "drawing.svg"));
-                }
+
+                // Current option
+                //for (int i = 0; i < svgDocs.Count; i++)
+                //{
+                //    svgDocs[i].Save(Path.Combine(directory, i + "drawing.svg"));
+                //}
 
                 return Result.Success;
             }
