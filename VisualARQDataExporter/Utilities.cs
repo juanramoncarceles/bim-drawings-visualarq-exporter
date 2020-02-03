@@ -12,42 +12,48 @@ namespace VisualARQDataExporter
 
             if (sourceObj.ObjectType == Rhino.DocObjects.ObjectType.InstanceReference)
             {
-                // TODO use this... VisualARQ.Script.IsProduct()
-                if (IsWall(id))
+                if (IsProduct(id))
                 {
-                    return "wall";
-                }
-                // TODO: missing IsCurtainWall(id)
-                else if (IsBeam(id))
-                {
-                    return "beam";
-                }
-                else if (IsColumn(id))
-                {
-                    return "column";
-                }
-                else if (IsDoor(id))
-                {
-                    return "door";
-                }
-                else if (IsWindow(id))
-                {
-                    return "window";
-                }
-                // TODO: missing IsStair(id)
-                // TODO: missing IsRailing(id)
-                else if (IsSlab(id))
-                {
-                    return "slab";
-                }
-                // TODO: missing IsRoof(id)
-                else if (IsFurniture(id))
-                {
-                    return "furniture";
-                }
-                else if (IsElement(id))
-                {
-                    return "element";
+                    if (IsWall(id))
+                    {
+                        return "wall";
+                    }
+                    // TODO: missing IsCurtainWall(id)
+                    else if (IsBeam(id))
+                    {
+                        return "beam";
+                    }
+                    else if (IsColumn(id))
+                    {
+                        return "column";
+                    }
+                    else if (IsDoor(id))
+                    {
+                        return "door";
+                    }
+                    else if (IsWindow(id))
+                    {
+                        return "window";
+                    }
+                    // TODO: missing IsStair(id)
+                    // TODO: missing IsRailing(id)
+                    else if (IsSlab(id))
+                    {
+                        return "slab";
+                    }
+                    // TODO: missing IsRoof(id)
+                    else if (IsFurniture(id))
+                    {
+                        return "furniture";
+                    }
+                    else if (IsElement(id))
+                    {
+                        return "element";
+                    }
+                    else
+                    {
+                        return "unknown";
+                    }
                 }
                 else
                 {
@@ -71,16 +77,41 @@ namespace VisualARQDataExporter
 
             dynamic objData = new ExpandoObject();
 
+            string type = GetCustomType(id);
+
             objData.Type = GetCustomType(id);
 
             objData.Name = rhobj.Name;
 
+            // If it is a VisualARQ product.
             objData.Style = GetProductStyle(id);
 
-
+            if (type == "wall")
+            {
+                objData.Height = GetWallHeight(id);
+                objData.Thickness = GetWallThickness(id);
+                objData.Alignment = GetWallAlignment(id);
+            }
+            else if (type == "column")
+            {
+                objData.Height = GetColumnHeight(id);
+                objData.InsertPoint = GetColumnPosition(id);
+                objData.Rotation = GetColumnRotation(id);
+            }
+            
             //GetAllObjectParameterIds(id, false);
 
             return objData;
+        }
+
+        public static ExpandoObject GetStyleData(Guid id)
+        {
+            dynamic styleData = new ExpandoObject();
+
+            styleData.Name = GetStyleName(id);
+            //...
+
+            return styleData;
         }
     }
 }

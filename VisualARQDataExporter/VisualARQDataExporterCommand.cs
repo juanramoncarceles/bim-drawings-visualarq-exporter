@@ -176,19 +176,30 @@ namespace VisualARQDataExporter
                     instancesData.Add(id, Utilities.GetObjectData(id));
                 }
 
-                // TODO: also get the data for each style used. Maybe store also in a Dictionary<Guid, ExpandoObject>
+                // Store all the data for each style.
+                Dictionary<Guid, ExpandoObject> stylesData = new Dictionary<Guid, ExpandoObject>();
+
                 foreach (Guid id in styleGuids)
                 {
-                    //... get styles data.
+                    RhinoApp.WriteLine("a style");
+                    stylesData.Add(id, Utilities.GetStyleData(id));
                 }
 
-                string json = JsonConvert.SerializeObject(instancesData, Newtonsoft.Json.Formatting.None);
+                // Data to JSON
+                string instancesJsonData = JsonConvert.SerializeObject(instancesData, Newtonsoft.Json.Formatting.Indented); // Newtonsoft.Json.Formatting.None
+                string stylesJsonData = JsonConvert.SerializeObject(stylesData, Newtonsoft.Json.Formatting.Indented);
 
-                RhinoApp.WriteLine(json);
+                //RhinoApp.WriteLine(json);
 
                 // TEMP
                 string directory = Path.GetDirectoryName(sfd.FileName);
+
+                RhinoApp.WriteLine(directory);
                 
+                // Create the JSON file.
+                File.WriteAllText(Path.Combine(directory + "\\instancesData.json"), instancesJsonData);
+                File.WriteAllText(Path.Combine(directory + "\\stylesData.json"), stylesJsonData);
+
                 //foreach (XmlDocument svgDoc in svgDocs)
                 //{
                 //    svgDoc.Save(Path.GetFullPath(sfd.FileName));
