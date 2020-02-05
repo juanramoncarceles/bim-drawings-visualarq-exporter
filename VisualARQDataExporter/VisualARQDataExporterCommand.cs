@@ -200,7 +200,9 @@ namespace VisualARQDataExporter
                 //File.WriteAllText(Path.Combine(directory + "\\stylesData.json"), stylesJsonData);
 
                 // A single JSON file.
-                FileTemplate reviewFile = new FileTemplate(svgDrawings, instancesData);
+                Dictionary<string, string> projInfo = new Dictionary<string, string>();
+                projInfo.Add("title", "Villa S");
+                FileTemplate reviewFile = new FileTemplate(projInfo, svgDrawings, instancesData);
                 File.WriteAllText(Path.Combine(directory + "\\archive.json"), JsonConvert.SerializeObject(reviewFile, Newtonsoft.Json.Formatting.Indented));
 
                 // Old option

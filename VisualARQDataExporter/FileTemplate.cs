@@ -10,14 +10,15 @@ namespace VisualARQDataExporter
 {
     public class FileTemplate
     {
-        public FileTemplate(Dictionary<string, string> drawings, Dictionary<Guid, ExpandoObject> elementsData)
+        public FileTemplate(Dictionary<string, string> ProjectInfo, Dictionary<string, string> Drawings, Dictionary<Guid, ExpandoObject> ElementsData)
         {
-            Drawings = drawings;
-            ElementsData = elementsData;
+            projectInfo = ProjectInfo;
+            drawings = Drawings;
+            elementsData = ElementsData;
         }
 
-        public Dictionary<string, string> Drawings;
-
-        public Dictionary<Guid, ExpandoObject> ElementsData;
+        public Dictionary<string, string> projectInfo;
+        public Dictionary<string, string> drawings;
+        public Dictionary<Guid, ExpandoObject> elementsData;
     }
 }
