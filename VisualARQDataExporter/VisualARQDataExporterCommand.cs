@@ -120,104 +120,160 @@ namespace VisualARQDataExporter
                 // Browse for a folder.
                 FolderBrowserDialog fbd = new FolderBrowserDialog();
 
-                string folderName;
+                string folderPath;
 
                 // Show the FolderBrowserDialog.
                 DialogResult result = fbd.ShowDialog();
                 if (result == DialogResult.OK)
                 {
-                    folderName = fbd.SelectedPath;
-                    RhinoApp.WriteLine(folderName);
-                }
-            }
+                    folderPath = fbd.SelectedPath;
+                    RhinoApp.WriteLine(folderPath);
 
-            // Save single file dialog.
-            SaveFileDialog sfd = new SaveFileDialog();
+                    string folderName = "VisualARQReviewArchive";
+                    Result rc = Rhino.Input.RhinoGet.GetString("Folder name", false, ref folderName);
+                    if (rc != Result.Success)
+                        return rc;
 
-            // sfd.Filter = "svg files (*.svg)|*.svg|All files (*.*)|*.*";
-            // sfd.FilterIndex = 2;
-            // sfd.RestoreDirectory = true;
+                    string newFolderPath = Path.Combine(folderPath, folderName);
 
-            string sfdname = sfd.FileName;
+                    RhinoApp.WriteLine(newFolderPath);
 
-            if (sfd.ShowDialog() == DialogResult.OK)
-            {
-                // All SVG docs will be stored here.
-                List<XmlDocument> svgDocs = new List<XmlDocument>();
-                Dictionary<string, string> svgDrawings = new Dictionary<string, string>();
-
-                int tempCount = 0;
-                foreach (Rhino.DocObjects.InstanceDefinition pv in planViewsDefs)
-                {
-                    SVGWriter svg = new SVGWriter();
-
-                    // Get all the objects in the Plan View.
-                    Rhino.DocObjects.RhinoObject[] rhobjs = pv.GetObjects();
-                    // TODO: Remove the border and the label of the plan view.
-
-                    // Create the SVG with this objects and add it to the list of SVG docs.
-                    svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs)); // TODO return also the drawing name? for example a KeyValuePair string xmldoc
-                    svgDrawings.Add("abc" + tempCount, svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs).OuterXml);
-                    tempCount++;
-                }
-
-                // Store all the unique id of the styles used.
-                List<Guid> styleGuids = new List<Guid>();
-
-                // Store all the data for each object.
-                Dictionary<Guid, ExpandoObject> instancesData = new Dictionary<Guid, ExpandoObject>();
-
-                foreach (Guid id in objectsGuids)
-                {
-                    Guid styleId = GetProductStyle(id);
-
-                    // Add the styleId.
-                    if (!styleGuids.Contains(styleId))
+                    // TODO Check if there is a folder with this name
+                    if (!Directory.Exists(newFolderPath))
                     {
-                        styleGuids.Add(styleId);
+                        Directory.CreateDirectory(newFolderPath);
+
+                        // Create the drawings directory.
+                        Directory.CreateDirectory(Path.Combine(newFolderPath, "drawings"));
+                        // Create the elements data directory.
+                        Directory.CreateDirectory(Path.Combine(newFolderPath, "elementsData"));
+
+                        // TODO Populate the folders...
+
+                    }
+                    else
+                    {
+                        RhinoApp.WriteLine("There is already a folder with this name.");
+                        return Result.Failure;
                     }
 
-                    instancesData.Add(id, Utilities.GetObjectData(id));
+
+
+
+                    return Result.Success;
                 }
-
-                // Store all the data for each style.
-                Dictionary<Guid, ExpandoObject> stylesData = new Dictionary<Guid, ExpandoObject>();
-
-                foreach (Guid id in styleGuids)
+                else
                 {
-                    stylesData.Add(id, Utilities.GetStyleData(id));
+                    return Result.Nothing;
                 }
+            }
+            else if (selected_index == 1)
+            {
+                // Save single file dialog.
+                SaveFileDialog sfd = new SaveFileDialog();
 
-                // Data to JSON
-                string instancesJsonData = JsonConvert.SerializeObject(instancesData, Newtonsoft.Json.Formatting.Indented); // Newtonsoft.Json.Formatting.None
-                string stylesJsonData = JsonConvert.SerializeObject(stylesData, Newtonsoft.Json.Formatting.Indented);
+                sfd.Filter = "json files (*.json)|*.json|All files (*.*)|*.*";
+                // sfd.FilterIndex = 2;
+                // sfd.RestoreDirectory = true;
 
-                // TEMP
-                string directory = Path.GetDirectoryName(sfd.FileName);
+                string sfdname = sfd.FileName;
 
-                // Create the JSON file.
-                //File.WriteAllText(Path.Combine(directory + "\\instancesData.json"), instancesJsonData);
-                //File.WriteAllText(Path.Combine(directory + "\\stylesData.json"), stylesJsonData);
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    // All SVG docs will be stored here.
+                    List<XmlDocument> svgDocs = new List<XmlDocument>();
+                    Dictionary<string, string> svgDrawings = new Dictionary<string, string>();
 
-                // A single JSON file.
-                Dictionary<string, string> projInfo = new Dictionary<string, string>();
-                projInfo.Add("title", "Villa S");
-                FileTemplate reviewFile = new FileTemplate(projInfo, svgDrawings, instancesData);
-                File.WriteAllText(Path.Combine(directory + "\\archive.json"), JsonConvert.SerializeObject(reviewFile, Newtonsoft.Json.Formatting.Indented));
+                    List<string> drawingsTitles = new List<string>();
 
-                // Old option
-                //foreach (XmlDocument svgDoc in svgDocs)
-                //{
-                //    svgDoc.Save(Path.GetFullPath(sfd.FileName));
-                //}
+                    int tempCount = 0;
+                    foreach (Rhino.DocObjects.InstanceDefinition pv in planViewsDefs)
+                    {
+                        SVGWriter svg = new SVGWriter();
 
-                // Current option
-                //for (int i = 0; i < svgDocs.Count; i++)
-                //{
-                //    svgDocs[i].Save(Path.Combine(directory, i + "drawing.svg"));
-                //}
+                        // Get all the objects in the Plan View.
+                        Rhino.DocObjects.RhinoObject[] rhobjs = pv.GetObjects();
+                        // TODO: Remove the border and the label of the plan view.
 
-                return Result.Success;
+                        // TODO: Get the Title of a the Plan View with the API, here or above on the Plan View Instance.
+                        // Temporary solution since there is only one text object:
+                        Rhino.DocObjects.TextObject pvTitle = (Rhino.DocObjects.TextObject)Array.Find(rhobjs, o => o.ObjectType == Rhino.DocObjects.ObjectType.Annotation);
+                        string drawingTitle = pvTitle.TextGeometry.PlainText;
+                        List<string> titlesMatched = drawingsTitles.FindAll(dt => dt == drawingTitle);
+                        drawingsTitles.Add(drawingTitle);
+                        if (titlesMatched.Count > 0)
+                            drawingTitle += (" (" + titlesMatched.Count + ")");
+
+                        RhinoApp.WriteLine(drawingTitle);
+
+                        // Create the SVG with this objects and add it to the list of SVG docs.
+                        svgDocs.Add(svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs)); // TODO return also the drawing name? for example a KeyValuePair string xmldoc
+                        svgDrawings.Add("abc" + tempCount, svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs).OuterXml);
+                        tempCount++;
+                    }
+
+                    // Store all the unique id of the styles used.
+                    List<Guid> styleGuids = new List<Guid>();
+
+                    // Store all the data for each object.
+                    Dictionary<Guid, ExpandoObject> instancesData = new Dictionary<Guid, ExpandoObject>();
+
+                    foreach (Guid id in objectsGuids)
+                    {
+                        Guid styleId = GetProductStyle(id);
+
+                        // Add the styleId.
+                        if (!styleGuids.Contains(styleId))
+                        {
+                            styleGuids.Add(styleId);
+                        }
+
+                        instancesData.Add(id, Utilities.GetObjectData(id));
+                    }
+
+                    // Store all the data for each style.
+                    Dictionary<Guid, ExpandoObject> stylesData = new Dictionary<Guid, ExpandoObject>();
+
+                    foreach (Guid id in styleGuids)
+                    {
+                        stylesData.Add(id, Utilities.GetStyleData(id));
+                    }
+
+                    // Data to JSON
+                    string instancesJsonData = JsonConvert.SerializeObject(instancesData, Newtonsoft.Json.Formatting.Indented); // Newtonsoft.Json.Formatting.None
+                    string stylesJsonData = JsonConvert.SerializeObject(stylesData, Newtonsoft.Json.Formatting.Indented);
+
+                    // TEMP
+                    string directory = Path.GetDirectoryName(sfd.FileName);
+
+                    // Create the JSON file.
+                    //File.WriteAllText(Path.Combine(directory + "\\instancesData.json"), instancesJsonData);
+                    //File.WriteAllText(Path.Combine(directory + "\\stylesData.json"), stylesJsonData);
+
+                    // A single JSON file.
+                    Dictionary<string, string> projInfo = new Dictionary<string, string>();
+                    projInfo.Add("title", "Villa S");
+                    FileTemplate reviewFile = new FileTemplate(projInfo, svgDrawings, instancesData);
+                    File.WriteAllText(Path.Combine(directory + "\\archive.json"), JsonConvert.SerializeObject(reviewFile, Newtonsoft.Json.Formatting.Indented));
+
+                    // Old option
+                    //foreach (XmlDocument svgDoc in svgDocs)
+                    //{
+                    //    svgDoc.Save(Path.GetFullPath(sfd.FileName));
+                    //}
+
+                    // Current option
+                    //for (int i = 0; i < svgDocs.Count; i++)
+                    //{
+                    //    svgDocs[i].Save(Path.Combine(directory, i + "drawing.svg"));
+                    //}
+
+                    return Result.Success;
+                }
+                else
+                {
+                    return Result.Nothing;
+                }
             }
             else
             {
