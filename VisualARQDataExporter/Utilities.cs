@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Dynamic;
 using static VisualARQ.Script;
 
@@ -112,6 +113,39 @@ namespace VisualARQDataExporter
             //...
 
             return styleData;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="objectsGuids"></param>
+        /// <param name="instancesData"></param>
+        /// <param name="stylesData"></param>
+        public static void GetProjectData(List<Guid> objectsGuids, out Dictionary<Guid, ExpandoObject> instancesData, out Dictionary<Guid, ExpandoObject> stylesData)
+        {
+            // Store all the unique id of the styles used.
+            List<Guid> styleGuids = new List<Guid>();
+
+            instancesData = new Dictionary<Guid, ExpandoObject>();
+            stylesData = new Dictionary<Guid, ExpandoObject>();
+
+            foreach (Guid id in objectsGuids)
+            {
+                Guid styleId = GetProductStyle(id);
+
+                // Add the styleId.
+                if (!styleGuids.Contains(styleId))
+                {
+                    styleGuids.Add(styleId);
+                }
+
+                instancesData.Add(id, GetObjectData(id));
+            }
+
+            foreach (Guid id in styleGuids)
+            {
+                stylesData.Add(id, GetStyleData(id));
+            }
         }
     }
 }
