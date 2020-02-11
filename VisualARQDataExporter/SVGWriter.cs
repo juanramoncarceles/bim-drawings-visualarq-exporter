@@ -50,9 +50,22 @@ namespace VisualARQDataExporter
                     }
 
                     // Global list with the unique rhino object ids.
-                    if (!VisualARQDataExporterCommand.objectsGuids.Contains(sourceId))
+                    //if (!VisualARQDataExporterCommand.objectsGuids.Contains(sourceId)) ///////////////////
+                    //    VisualARQDataExporterCommand.objectsGuids.Add(sourceId); /////////////////////
+                    
+
+                    // Global dictionary with each category available and its corresponding Guids.
+                    string type = Utilities.GetCustomType(sourceId);
+                    if (VisualARQDataExporterCommand.objectsGuidsDict.ContainsKey(type))
                     {
-                        VisualARQDataExporterCommand.objectsGuids.Add(sourceId);
+                        if (!VisualARQDataExporterCommand.objectsGuidsDict[type].Contains(sourceId))
+                        {
+                            VisualARQDataExporterCommand.objectsGuidsDict[type].Add(sourceId);
+                        }
+                    }
+                    else
+                    {
+                        VisualARQDataExporterCommand.objectsGuidsDict.Add(type, new List<Guid> { sourceId });
                     }
                 }
             }
