@@ -7,15 +7,16 @@ namespace VisualARQDataExporter
 {
     public class CategoryData
     {
-        //public CategoryData(Dictionary<Guid, ExpandoObject> Instances, Dictionary<Guid, ExpandoObject> Styles)
-        //{
-        //    instances = Instances;
-        //    styles = Styles;
-        //}
+        public CategoryData(Dictionary<Guid, ExpandoObject> Instances, Dictionary<Guid, ExpandoObject> Styles)
+        {
+            instances = Instances;
+            styles = Styles;
+        }
 
         public Dictionary<Guid, ExpandoObject> instances;
         public Dictionary<Guid, ExpandoObject> styles;
     }
+
 
     public static class Utilities
     {
@@ -79,6 +80,7 @@ namespace VisualARQDataExporter
             }
         }
 
+
         /// <summary>
         /// Creates an object with all the instance data.
         /// </summary>
@@ -95,6 +97,8 @@ namespace VisualARQDataExporter
             objData.Type = GetCustomType(id);
 
             objData.Name = rhobj.Name;
+
+            objData.Tag = GetElementTag(id);
 
             // If it is a VisualARQ product.
             objData.Style = GetProductStyle(id);
@@ -159,6 +163,7 @@ namespace VisualARQDataExporter
             return objData;
         }
 
+
         /// <summary>
         /// Creates an object with all the style data.
         /// </summary>
@@ -174,41 +179,9 @@ namespace VisualARQDataExporter
             return styleData;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="objectsGuids"></param>
-        /// <param name="instancesData"></param>
-        /// <param name="stylesData"></param>
-        public static void GetProjectData(List<Guid> objectsGuids, out Dictionary<Guid, ExpandoObject> instancesData, out Dictionary<Guid, ExpandoObject> stylesData)
-        {
-            // Store all the unique id of the styles used.
-            List<Guid> styleGuids = new List<Guid>();
-
-            instancesData = new Dictionary<Guid, ExpandoObject>();
-            stylesData = new Dictionary<Guid, ExpandoObject>();
-
-            foreach (Guid id in objectsGuids)
-            {
-                Guid styleId = GetProductStyle(id);
-
-                // Add the styleId.
-                if (!styleGuids.Contains(styleId))
-                {
-                    styleGuids.Add(styleId);
-                }
-
-                instancesData.Add(id, GetObjectData(id));
-            }
-
-            foreach (Guid id in styleGuids)
-            {
-                stylesData.Add(id, GetStyleData(id));
-            }
-        }
 
         /// <summary>
-        /// 
+        /// Creates a collection with all the data organized in categories.
         /// </summary>
         /// <param name="objectsGuids"></param>
         /// <param name="objectsData"></param>
@@ -242,9 +215,10 @@ namespace VisualARQDataExporter
                     categoryStylesData.Add(id, GetStyleData(id));
                 
                 // Add all the collected category data to the main Dictionary.
-                objectsData.Add(categoryGuids.Key, new CategoryData() { instances = categoryInstancesData, styles = categoryStylesData });
+                objectsData.Add(categoryGuids.Key, new CategoryData(categoryInstancesData, categoryStylesData));
             }
         }
+
 
         /// <summary>
         /// This is a temporary solution until the VisualARQ API method will be developed.

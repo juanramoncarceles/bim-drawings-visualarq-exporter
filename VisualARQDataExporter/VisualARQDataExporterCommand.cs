@@ -4,11 +4,9 @@ using Rhino;
 using Rhino.Commands;
 using Rhino.Geometry;
 using Rhino.Input.Custom;
-using static VisualARQ.Script;
 using System.Xml;
 using System.Windows.Forms;
 using System.IO;
-using System.Dynamic;
 using Newtonsoft.Json;
 
 namespace VisualARQDataExporter
@@ -32,10 +30,9 @@ namespace VisualARQDataExporter
         ///<returns>The command name as it appears on the Rhino command line.</returns>
         public override string EnglishName
         {
-            get { return "VisualARQDataExporterCommand"; }
+            get { return "ExportToVAReview"; }
         }
 
-        public static List<Guid> objectsGuids = new List<Guid>(); // Delete this if the below works //////////////
         public static Dictionary<string, List<Guid>> objectsGuidsDict = new Dictionary<string, List<Guid>>();
 
         /// <summary>
@@ -91,9 +88,7 @@ namespace VisualARQDataExporter
                     
                     // Skip instanceDefinitions already added.
                     if (!planViewsDefs.Exists(x => x.Id == planViewDef.Id))
-                    {
                         planViewsDefs.Add(planViewDef);
-                    }
                 }
             }
 
@@ -176,29 +171,15 @@ namespace VisualARQDataExporter
                             svgDrawings.Add(drawingTitle, svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs));
                         }
 
-                        // Store all the data for each object.
-                        //Dictionary<Guid, ExpandoObject> instancesData = new Dictionary<Guid, ExpandoObject>(); ////////////////
-
-                        // Store all the data for each style.
-                        //Dictionary<Guid, ExpandoObject> stylesData = new Dictionary<Guid, ExpandoObject>(); //////////////
-
-                        //Utilities.GetProjectData(objectsGuids, out instancesData, out stylesData); ///////////////
-
-                        // Data to JSON
-                        //string instancesJsonData = JsonConvert.SerializeObject(instancesData, Newtonsoft.Json.Formatting.Indented); //////////////
-                        //string stylesJsonData = JsonConvert.SerializeObject(stylesData, Newtonsoft.Json.Formatting.Indented); ///////////////
-
-                        // TEST to save as separate files by category
+                        // Create the dictionary with all the data by categories.
                         Dictionary<string, CategoryData> objectsData = new Dictionary<string, CategoryData>();
                         Utilities.GetProjectData(objectsGuidsDict, out objectsData);
+
+                        // Save each category as a separate JSON file.
                         foreach (KeyValuePair<string, CategoryData> objectCategoryData in objectsData)
                             File.WriteAllText(Path.Combine(elementsDataFolderPath, objectCategoryData.Key + ".json"), JsonConvert.SerializeObject(objectCategoryData.Value, Newtonsoft.Json.Formatting.Indented));
-
-                        // Temporary way to store the JSON data files.
-                        //File.WriteAllText(Path.Combine(elementsDataFolderPath, "instancesData.json"), instancesJsonData); ///////////////
-                        //File.WriteAllText(Path.Combine(elementsDataFolderPath, "stylesData.json"), stylesJsonData); /////////////////
                         
-                        // Create the drawings files.
+                        // Save each drawing as a separate SVG file.
                         foreach (KeyValuePair<string, XmlDocument> drawing in svgDrawings)
                             drawing.Value.Save(Path.Combine(drawingsFolderPath, drawing.Key + ".svg"));
                     }
@@ -252,20 +233,20 @@ namespace VisualARQDataExporter
                         // Create the SVG and store it as string.
                         svgDrawings.Add(drawingTitle, svg.CreateSVG(RhinoDoc.ActiveDoc, rhobjs).OuterXml);
                     }
-                    
-                    // Store all the data for each object.
-                    Dictionary<Guid, ExpandoObject> instancesData = new Dictionary<Guid, ExpandoObject>();
 
-                    // Store all the data for each style.
-                    Dictionary<Guid, ExpandoObject> stylesData = new Dictionary<Guid, ExpandoObject>();
+                    // Create the dictionary with all the data by categories.
+                    Dictionary<string, CategoryData> objectsData = new Dictionary<string, CategoryData>();
+                    Utilities.GetProjectData(objectsGuidsDict, out objectsData);
 
-                    Utilities.GetProjectData(objectsGuids, out instancesData, out stylesData);
+                    // Creation of the single file with all the data.
+                    Dictionary<string, string> projInfo = new Dictionary<string, string>
+                    {
+                        { "title", doc.Name ?? "Untitled project" }
+                    };
+                    FileTemplate reviewFile = new FileTemplate(projInfo, svgDrawings, objectsData);
 
-                    // A single JSON file.
-                    Dictionary<string, string> projInfo = new Dictionary<string, string>();
-                    projInfo.Add("title", "Villa S");
-                    FileTemplate reviewFile = new FileTemplate(projInfo, svgDrawings, instancesData);
-                    File.WriteAllText(Path.Combine(sfdname), JsonConvert.SerializeObject(reviewFile, Newtonsoft.Json.Formatting.Indented)); // directory + "\\archive.json"
+                    // Save the file.
+                    File.WriteAllText(Path.Combine(sfdname), JsonConvert.SerializeObject(reviewFile, Newtonsoft.Json.Formatting.Indented));
                     
                     return Result.Success;
                 }

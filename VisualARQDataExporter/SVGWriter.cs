@@ -49,19 +49,12 @@ namespace VisualARQDataExporter
                         rhobjsGroups.Add(sourceId, rhobjsGroup);
                     }
 
-                    // Global list with the unique rhino object ids.
-                    //if (!VisualARQDataExporterCommand.objectsGuids.Contains(sourceId)) ///////////////////
-                    //    VisualARQDataExporterCommand.objectsGuids.Add(sourceId); /////////////////////
-                    
-
                     // Global dictionary with each category available and its corresponding Guids.
                     string type = Utilities.GetCustomType(sourceId);
                     if (VisualARQDataExporterCommand.objectsGuidsDict.ContainsKey(type))
                     {
                         if (!VisualARQDataExporterCommand.objectsGuidsDict[type].Contains(sourceId))
-                        {
                             VisualARQDataExporterCommand.objectsGuidsDict[type].Add(sourceId);
-                        }
                     }
                     else
                     {

@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml;
-using System.Dynamic;
+﻿using System.Collections.Generic;
 
 namespace VisualARQDataExporter
 {
     public class FileTemplate
     {
-        public FileTemplate(Dictionary<string, string> ProjectInfo, Dictionary<string, string> Drawings, Dictionary<Guid, ExpandoObject> ElementsData)
+        public FileTemplate(Dictionary<string, string> ProjectInfo, Dictionary<string, string> Drawings, Dictionary<string, CategoryData> ElementsData)
         {
             projectInfo = ProjectInfo;
             drawings = Drawings;
@@ -19,6 +13,6 @@ namespace VisualARQDataExporter
 
         public Dictionary<string, string> projectInfo;
         public Dictionary<string, string> drawings;
-        public Dictionary<Guid, ExpandoObject> elementsData;
+        public Dictionary<string, CategoryData> elementsData;
     }
 }
