@@ -50,7 +50,7 @@ namespace VisualARQDataExporter
                     }
 
                     // Global dictionary with each category available and its corresponding Guids.
-                    string type = Utilities.GetCustomType(sourceId);
+                    CustomType type = Utilities.GetCustomType(sourceId);
                     if (VisualARQDataExporterCommand.objectsGuidsDict.ContainsKey(type))
                     {
                         if (!VisualARQDataExporterCommand.objectsGuidsDict[type].Contains(sourceId))
@@ -493,7 +493,7 @@ namespace VisualARQDataExporter
                     node.Attributes.Append(attribute);
                     // The category of the element.
                     attribute = xmlDoc.CreateAttribute("data-category");
-                    attribute.Value = Utilities.GetCustomType(rhobjsGroup.Key);
+                    attribute.Value = Utilities.GetCustomType(rhobjsGroup.Key).ToString();
                     node.Attributes.Append(attribute);
 
                     rootNode.AppendChild(node);

@@ -33,7 +33,7 @@ namespace VisualARQDataExporter
             get { return "ExportToVAReview"; }
         }
 
-        public static Dictionary<string, List<Guid>> objectsGuidsDict = new Dictionary<string, List<Guid>>();
+        public static Dictionary<CustomType, List<Guid>> objectsGuidsDict = new Dictionary<CustomType, List<Guid>>();
 
         /// <summary>
         /// Determines if the passed Rhino object is a plan view or a section view or not.
@@ -172,12 +172,12 @@ namespace VisualARQDataExporter
                         }
 
                         // Create the dictionary with all the data by categories.
-                        Dictionary<string, CategoryData> objectsData = new Dictionary<string, CategoryData>();
+                        Dictionary<CustomType, ObjectTypeDataStruct> objectsData = new Dictionary<CustomType, ObjectTypeDataStruct>();
                         Utilities.GetProjectData(objectsGuidsDict, out objectsData);
 
                         // Save each category as a separate JSON file.
-                        foreach (KeyValuePair<string, CategoryData> objectCategoryData in objectsData)
-                            File.WriteAllText(Path.Combine(elementsDataFolderPath, objectCategoryData.Key + ".json"), JsonConvert.SerializeObject(objectCategoryData.Value, Newtonsoft.Json.Formatting.Indented));
+                        foreach (KeyValuePair<CustomType, ObjectTypeDataStruct> objectCategoryData in objectsData)
+                            File.WriteAllText(Path.Combine(elementsDataFolderPath, objectCategoryData.Key + ".json"), JsonConvert.SerializeObject(objectCategoryData.Value, Newtonsoft.Json.Formatting.Indented));                       
                         
                         // Save each drawing as a separate SVG file.
                         foreach (KeyValuePair<string, XmlDocument> drawing in svgDrawings)
@@ -235,7 +235,7 @@ namespace VisualARQDataExporter
                     }
 
                     // Create the dictionary with all the data by categories.
-                    Dictionary<string, CategoryData> objectsData = new Dictionary<string, CategoryData>();
+                    Dictionary<CustomType, ObjectTypeDataStruct> objectsData = new Dictionary<CustomType, ObjectTypeDataStruct>();
                     Utilities.GetProjectData(objectsGuidsDict, out objectsData);
 
                     // Creation of the single file with all the data.

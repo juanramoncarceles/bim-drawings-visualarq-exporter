@@ -4,7 +4,7 @@ namespace VisualARQDataExporter
 {
     public class FileTemplate
     {
-        public FileTemplate(Dictionary<string, string> ProjectInfo, Dictionary<string, string> Drawings, Dictionary<string, CategoryData> ElementsData)
+        public FileTemplate(Dictionary<string, string> ProjectInfo, Dictionary<string, string> Drawings, Dictionary<CustomType, ObjectTypeDataStruct> ElementsData)
         {
             projectInfo = ProjectInfo;
             drawings = Drawings;
@@ -13,6 +13,6 @@ namespace VisualARQDataExporter
 
         public Dictionary<string, string> projectInfo;
         public Dictionary<string, string> drawings;
-        public Dictionary<string, CategoryData> elementsData;
+        public Dictionary<CustomType, ObjectTypeDataStruct> elementsData;
     }
 }
