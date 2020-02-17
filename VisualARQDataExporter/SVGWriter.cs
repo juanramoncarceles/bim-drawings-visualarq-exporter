@@ -153,13 +153,15 @@ namespace VisualARQDataExporter
                 }
             }
 
+            // IMPORTANT Now the ones that are hatch solid are skipped because this is commented and should be handled.
+
             // Only objects that are not Hatch or that are Hatch with a solid pattern can have the style attribute.
-            if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch || (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch && doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid))
-            {
-                XmlAttribute attribute = xmlDoc.CreateAttribute("style");
-                attribute.Value = CreateStyleAttribute(rhobj, curve.IsClosed);
-                userNode.Attributes.Append(attribute);
-            }
+            //if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch || (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch && doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid))
+            //{
+            //    XmlAttribute attribute = xmlDoc.CreateAttribute("style");
+            //    attribute.Value = CreateStyleAttribute(rhobj, curve.IsClosed);
+            //    userNode.Attributes.Append(attribute);
+            //}
 
             return userNode;
         }
@@ -480,23 +482,28 @@ namespace VisualARQDataExporter
             {
                 if (rhobjsGroup.Value != null && rhobjsGroup.Value.Count > 0)
                 {
-                    XmlNode node = xmlDoc.CreateElement("g");
+                    XmlNode objGroupNode = xmlDoc.CreateElement("g");
         
                     // listOfXmlNodes.Add(node);
                     // Custom attribute to allow selection of the element in the app.
                     attribute = xmlDoc.CreateAttribute("selectable");
                     attribute.Value = "";
-                    node.Attributes.Append(attribute);
+                    objGroupNode.Attributes.Append(attribute);
                     // The id of the element.
                     attribute = xmlDoc.CreateAttribute("data-id");
                     attribute.Value = rhobjsGroup.Key.ToString();
-                    node.Attributes.Append(attribute);
+                    objGroupNode.Attributes.Append(attribute);
                     // The category of the element.
                     attribute = xmlDoc.CreateAttribute("data-category");
                     attribute.Value = Utilities.GetCustomType(rhobjsGroup.Key).ToString();
-                    node.Attributes.Append(attribute);
+                    objGroupNode.Attributes.Append(attribute);
 
-                    rootNode.AppendChild(node);
+                    rootNode.AppendChild(objGroupNode);
+
+                    // Each node created.
+                    List<XmlNode> nodes = new List<XmlNode>();
+                    // The value of the styles attribute and the class attribute for each node created.
+                    List<string> nodesAttributes = new List<string>();
 
                     XmlNode nodeTest = null;
 
@@ -508,16 +515,58 @@ namespace VisualARQDataExporter
                             case (int)Rhino.DocObjects.ObjectType.Curve:
                                 Curve curve = (Curve)rhobj.Geometry;
                                 nodeTest = WriteSVGCurve(xmlDoc, curve, rhobj);
-                                if (nodeTest != null) node.AppendChild(nodeTest);
+                                if (nodeTest != null)
+                                {
+                                    bool closed = curve.IsClosed;
+                                    nodes.Add(nodeTest);
+                                    nodesAttributes.Add(String.Concat(CreateStyleAttribute(rhobj, closed), "&", closed ? "solid" : "curve"));
+                                }
                                 break;
                             // ********** HATCH ***********
                             case (int)Rhino.DocObjects.ObjectType.Hatch:
                                 Hatch hatch = (Hatch)rhobj.Geometry;
                                 nodeTest = WriteSVGHatch(xmlDoc, hatch, rhobj);
-                                if (nodeTest != null) node.AppendChild(nodeTest);
+                                if (nodeTest != null) objGroupNode.AppendChild(nodeTest);
                                 break;
                             // **** TODO: Other types? ****
                         }
+                    }
+
+                    // Stores the indexes of the nodes that share the same styles and class attributes.
+                    IDictionary<string, List<int>> stylesGroups = new Dictionary<string, List<int>>();
+
+                    for (int i = 0; i < nodes.Count; i++)
+                    {
+                        if (stylesGroups.ContainsKey(nodesAttributes[i]))
+                            stylesGroups[nodesAttributes[i]].Add(i);
+                        else
+                            stylesGroups.Add(nodesAttributes[i], new List<int> { i });
+                    }
+
+                    // Place each set of nodes under a group with the same attributes.
+                    foreach (KeyValuePair<string, List<int>> stylesGroup in stylesGroups)
+                    {
+                        XmlNode subGroup = xmlDoc.CreateElement("g");
+
+                        // Obtain the attributes values: style & class
+                        string[] attrValues = stylesGroup.Key.Split('&');
+
+                        // Set the common styles attribute to the group.
+                        attribute = xmlDoc.CreateAttribute("style");
+                        attribute.Value = attrValues[0];
+                        subGroup.Attributes.Append(attribute);
+
+                        // Set the common class attribute to the group.
+                        attribute = xmlDoc.CreateAttribute("class");
+                        attribute.Value = attrValues[1];
+                        subGroup.Attributes.Append(attribute);
+
+                        // Place in the group all the nodes with the same styles.
+                        foreach (int i in stylesGroup.Value)
+                            subGroup.AppendChild(nodes[i]);
+
+                        // Add the subGroup to the main object group.
+                        objGroupNode.AppendChild(subGroup);
                     }
                 }
             }
