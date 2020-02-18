@@ -312,16 +312,15 @@ namespace VisualARQDataExporter
             attribute.Value = poly;
             userNode.Attributes.Append(attribute);
 
-            // TODO: This is for a solid hatch or a set of related closed curves, if it is the last it works? 
-            // For now it is only used to create a fill with holes from a hatch with holes.
-            // Only objects that are not Hatch? or that are Hatch with a solid pattern can have the style attribute.
+            // TODO: This is also for a set of related closed curves 
             // TODO: How to handle a set of joined curves? What will be the rhobj? It should have 255,255,255 and fill opacity 0.
-            if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch || (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch && doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid))
-            {
-                attribute = xmlDoc.CreateAttribute("style");
-                attribute.Value = CreateStyleAttribute(rhobj, true);
-                userNode.Attributes.Append(attribute);
-            }
+            // DELETE
+            //if (rhobj.ObjectType != Rhino.DocObjects.ObjectType.Hatch || (rhobj.ObjectType == Rhino.DocObjects.ObjectType.Hatch && doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid))
+            //{
+            //    attribute = xmlDoc.CreateAttribute("style");
+            //    attribute.Value = CreateStyleAttribute(rhobj, true);
+            //    userNode.Attributes.Append(attribute);
+            //}
 
             return userNode;
         }
@@ -362,13 +361,6 @@ namespace VisualARQDataExporter
 
                 XmlNode userNode = xmlDoc.CreateElement("g");
 
-                XmlAttribute attribute = xmlDoc.CreateAttribute("style");
-                attribute.Value = CreateStyleAttribute(rhobj, ((Curve)hatches[0]).IsClosed); // TODO: It could be a point? then what?
-                userNode.Attributes.Append(attribute);
-            
-                // TODO: problem since a style attribute is created for each subelement too.
-                // Put inside each curve function an if rhobj is hatch not solid skip the create style?
-
                 for (int i = 0; i < hatches.Length; i++)
                 {
                     GeometryBase geom = hatches[i];
@@ -380,7 +372,7 @@ namespace VisualARQDataExporter
                                 Curve curve = geom as Curve;
                                     userNode.AppendChild(WriteSVGCurve(xmlDoc, curve, rhobj));
                                 break;
-                            case Rhino.DocObjects.ObjectType.Point:
+                            case Rhino.DocObjects.ObjectType.Point: // I think it can never be a point.
                                 Point point = geom as Point;
                                 // userNode.AppendChild(WriteSVGPoint(xmlDoc, point.Location, rhobj));
                                 break;
@@ -526,7 +518,14 @@ namespace VisualARQDataExporter
                             case (int)Rhino.DocObjects.ObjectType.Hatch:
                                 Hatch hatch = (Hatch)rhobj.Geometry;
                                 nodeTest = WriteSVGHatch(xmlDoc, hatch, rhobj);
-                                if (nodeTest != null) objGroupNode.AppendChild(nodeTest);
+                                if (nodeTest != null)
+                                {
+                                    nodes.Add(nodeTest);
+                                    if (doc.HatchPatterns[((Hatch)rhobj.Geometry).PatternIndex].FillType == Rhino.DocObjects.HatchPatternFillType.Solid)
+                                        nodesAttributes.Add(String.Concat(CreateStyleAttribute(rhobj, true), "&", "solid"));
+                                    else // Hatch with a non solid pattern.
+                                        nodesAttributes.Add(String.Concat(CreateStyleAttribute(rhobj, false), "&", "curve"));
+                                }
                                 break;
                             // **** TODO: Other types? ****
                         }
