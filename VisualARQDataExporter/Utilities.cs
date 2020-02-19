@@ -4,65 +4,6 @@ using static VisualARQ.Script;
 
 namespace VisualARQDataExporter
 {
-    public struct ObjectTypeDataStruct
-    {
-        public ObjectTypeDataStruct(Dictionary<Guid, ObjectDataStruct> Instances, Dictionary<Guid, ObjectDataStruct> Styles)
-        {
-            instances = Instances;
-            styles = Styles;
-        }
-
-        public Dictionary<Guid, ObjectDataStruct> instances;
-        public Dictionary<Guid, ObjectDataStruct> styles;
-    }
-
-    
-    public struct ObjectDataStruct
-    {
-        public ObjectDataStruct(IEnumerable<DataEntry> Properties, IEnumerable<DataEntry> Parameters)
-        {
-            properties = Properties;
-            parameters = Parameters;
-        }
-
-        public IEnumerable<DataEntry> properties;
-        public IEnumerable<DataEntry> parameters;
-    }
-
-
-    public struct DataEntry
-    {
-        public DataEntry(string Name, object Value, string Category = "unknown")
-        {
-            name = Name;
-            value = Value;
-            category = Category;
-        }
-
-        public string name;
-        public object value;
-        public string category;
-    }
-
-
-    public enum CustomType
-    {
-        Wall,
-        CurtainWall,
-        Beam,
-        Column,
-        Door,
-        Window,
-        Stair,
-        Railing,
-        Slab,
-        Furniture,
-        GenericElement,
-        Unknown,
-        RhinoGeometry
-    }
-
-
     public static class Utilities
     {
         /// <summary>
@@ -317,10 +258,30 @@ namespace VisualARQDataExporter
             // Get all the objects in the Plan View.
             Rhino.DocObjects.RhinoObject[] rhobjs = drawing.GetObjects();
 
-            // Temporary solution since there is only one text object:
-            Rhino.DocObjects.TextObject pvTitle = (Rhino.DocObjects.TextObject)Array.Find(rhobjs, o => o.ObjectType == Rhino.DocObjects.ObjectType.Annotation);
+            // Find the text object without parent.
+            Rhino.DocObjects.TextObject pvTitle = (Rhino.DocObjects.TextObject)Array.Find(rhobjs, o => o.ObjectType == Rhino.DocObjects.ObjectType.Annotation && GetSourceObjectId(o) == Guid.Empty);
 
             return pvTitle.TextGeometry.PlainText;
+        }
+
+
+        /// <summary>
+        /// This is a temporary solution untile the VisualARQ API method will be developed.
+        /// </summary>
+        /// <param name="rhobj"></param>
+        /// <returns></returns>
+        public static Guid GetSourceObjectId(Rhino.DocObjects.RhinoObject rhobj)
+        {
+            string id = rhobj.Attributes.GetUserString("sourceId");
+
+            if (id != null)
+            {
+                return Guid.Parse(id);
+            }
+            else
+            {
+                return Guid.Empty;
+            }
         }
     }
 }

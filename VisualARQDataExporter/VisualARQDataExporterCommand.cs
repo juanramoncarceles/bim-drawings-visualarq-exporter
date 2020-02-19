@@ -243,7 +243,7 @@ namespace VisualARQDataExporter
                     {
                         { "title", doc.Name ?? "Untitled project" }
                     };
-                    FileTemplate reviewFile = new FileTemplate(projInfo, svgDrawings, objectsData);
+                    DataStructures reviewFile = new DataStructures(projInfo, svgDrawings, objectsData);
 
                     // Save the file.
                     File.WriteAllText(Path.Combine(sfdname), JsonConvert.SerializeObject(reviewFile, Newtonsoft.Json.Formatting.Indented));

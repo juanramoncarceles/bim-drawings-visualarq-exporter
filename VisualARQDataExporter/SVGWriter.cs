@@ -33,12 +33,11 @@ namespace VisualARQDataExporter
             IDictionary<Guid, List<Rhino.DocObjects.RhinoObject>> rhobjsGroups = new Dictionary<Guid, List<Rhino.DocObjects.RhinoObject>>();
             foreach (Rhino.DocObjects.RhinoObject rhobj in rhobjs)
             {
-                // TODO: Temporary solution to be replaced with the VisualARQ API method to
-                // obtain the source id: Guid sourceGuid = VisualARQ.Script.vaGetSourceObjectId(rhobj);
-                if (rhobj.Attributes.GetUserString("sourceId") != null)
-                {
-                    Guid sourceId = Guid.Parse(rhobj.Attributes.GetUserString("sourceId")); // TODO: Temporary
+                // TODO: This is a temporary method to be replaced with the VisualARQ API method.
+                Guid sourceId = Utilities.GetSourceObjectId(rhobj);
 
+                if (sourceId != Guid.Empty)
+                {
                     if (rhobjsGroups.ContainsKey(sourceId))
                     {
                         rhobjsGroups[sourceId].Add(rhobj);

@@ -61,7 +61,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FileTemplate.cs" />
+    <Compile Include="DataStructures.cs" />
     <Compile Include="Utilities.cs" />
     <Compile Include="SVGWriter.cs" />
     <Compile Include="VisualARQDataExporterCommand.cs" />
